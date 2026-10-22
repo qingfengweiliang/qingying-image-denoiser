@@ -64,7 +64,7 @@ python scripts/prepare_ncnn.py
 ./gradlew :app:assembleDebug
 ```
 
-Windows 使用 `gradlew.bat`。GitHub [Android APK 工作流](../../actions/workflows/android.yml) 可自动构建测试包。正式更新必须使用同一签名密钥，并增加 `versionCode`；私密密钥及密码不要上传仓库。
+Windows 使用 `gradlew.bat`。GitHub [Android APK 工作流](https://github.com/qingfengweiliang/qingying-image-denoiser/actions/workflows/android.yml) 可自动构建测试包。正式更新必须使用同一签名密钥，并增加 `versionCode`；私密密钥及密码不要上传仓库。
 
 ### Windows
 

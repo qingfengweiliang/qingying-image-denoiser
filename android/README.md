@@ -51,6 +51,6 @@ keyPassword=你的备份密码
 
 `python tests/test_processing.py` 在有 NumPy / SciPy / Pillow / OpenCV 的主机上验证四种 Python 算法与导出。`tests/native/` 包含供桌面 ncnn 库运行的 C++ 核心回归测试，可启用 AddressSanitizer 检查极小图片及分块边界；它不能替代安卓真机测试。
 
-第三方许可证位于 `app/src/main/assets/licenses/` 和各 Python 包元数据中。模型、源码来源和移植修补说明见 `licenses/NOTICE.txt`。原项目 Windows 代码保持原状。本次交付不自动推送 GitHub，也不创建公开 Release。
+第三方许可证位于 `app/src/main/assets/licenses/` 和各 Python 包元数据中。模型、源码来源和移植修补说明见 `licenses/NOTICE.txt`。原项目 Windows 代码保持原状。正式版本通过项目 GitHub Releases 分发，主分支保留可复现构建的源码和工作流。
 
 Windows 下填写 storeFile 时建议使用正斜杠，例如 C:/Private/qingying-android.jks，避免 Properties 文件中的反斜杠转义。
