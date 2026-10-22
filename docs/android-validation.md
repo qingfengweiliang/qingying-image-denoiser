@@ -2,13 +2,12 @@
 
 构建日期：2026-10-22。版本：清影 Android 1.0.0（versionCode 1）。源项目基准提交：`52f748b5b50259dfd837ea5bda7b5f1bf73d0244`。
 
-## 交付内容
+## 发布内容
 
 - `Qingying-Android-1.0.0.apk`：已签名 Release 安装包，包名 `cn.qingying.denoiser`。
-- `源码/qingying-image-denoiser/`：项目源码，增加 `android/` 和 GitHub Actions 工作流；原 Windows 实现保留。
-- `GitHub上传与发布说明.md`：上传源码、自动构建、发布 Release 和签名管理步骤。
-- `验证记录/`：签名、对齐、Lint、核心算法等检查的原始记录。
-- 签名备份另行提供，**不在这个公共交付 ZIP 内**。
+- `SHA256SUMS.txt`：APK 的 SHA-256 校验值。
+- 安卓源码和构建说明位于仓库 `android/`，Windows 实现保留。
+- 私密签名密钥与密码不公开上传。
 
 ## 已通过的构建和检查
 

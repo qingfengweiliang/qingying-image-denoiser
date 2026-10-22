@@ -5,7 +5,6 @@
 ## 下载与安装
 
 - [APK 安装包](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/android-v1.0.0/Qingying-Android-1.0.0.apk)：约 93 MB，Android 7.0+ 的 ARM64 手机。
-- [完整交付 ZIP](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/android-v1.0.0/Qingying-Android-1.0.0.zip)：APK、源码、构建说明与 GitHub 上传说明。
 - [SHA-256 校验文件](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/android-v1.0.0/SHA256SUMS.txt)。
 
 下载 APK 后安装，按系统提示允许当前浏览器或文件管理器安装未知应用。应用不申请联网或广泛存储权限，使用系统文件选择器导入和导出。

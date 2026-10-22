@@ -9,7 +9,6 @@
 | 平台 | 系统要求 | 下载 |
 | --- | --- | --- |
 | Android | Android 7.0+，64 位 ARM 手机 | [下载 APK](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/android-v1.0.0/Qingying-Android-1.0.0.apk) · [版本说明](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/tag/android-v1.0.0) |
-| Android 完整交付包 | APK、源码、构建与 GitHub 上传说明 | [下载 ZIP](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/android-v1.0.0/Qingying-Android-1.0.0.zip) |
 | Windows | Windows x64 | [下载 ZIP](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/V2.5.0/Qingying-2.5-Windows-x64.zip) · [版本说明](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/tag/V2.5.0) |
 
 安卓下载 APK 后安装，按系统提示允许当前浏览器或文件管理器“安装未知应用”。不支持 32 位安卓设备。
