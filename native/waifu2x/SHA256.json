@@ -1,0 +1,10 @@
+{
+  "vcomp140.dll": "55aba23cdcd6484fbb06f4155b8ca75adfce7a881f10afd0c49457165e677164",
+  "waifu2x-ncnn-vulkan.exe": "7ef2efc4c54e1a963046b3a9b0aee6bca5b1487a7c907373035a10f4187a733d",
+  "models-cunet/noise1_model.bin": "3407cb87c2503cbd69f8a6703b31bc4949a72080a3e1b1e536dba8bdbfad934f",
+  "models-cunet/noise1_model.param": "8fda717f004e75f02e4eaf9901bd37301fa51b1f5cd80d53a466a274406595d3",
+  "models-cunet/noise2_model.bin": "b45d5febeb56166b7aff055cb0fbb87647dae528968f97d838dfd7ce0b7117f4",
+  "models-cunet/noise2_model.param": "8fda717f004e75f02e4eaf9901bd37301fa51b1f5cd80d53a466a274406595d3",
+  "models-cunet/noise3_model.bin": "cd3d2440673d28d7a20aa6428a2a79e1c5e733f21de0a66785958f98d6994926",
+  "models-cunet/noise3_model.param": "8fda717f004e75f02e4eaf9901bd37301fa51b1f5cd80d53a466a274406595d3"
+}

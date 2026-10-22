@@ -1,0 +1,6 @@
+使用 AI Image Rehab 的自动杂纹清理算法（MIT）。
+https://github.com/BlairKaiser/ai-image-rehab
+提交：c573c4e684205b1068282af193673d5ea730828a
+原始文件：app/deripple.py
+保留原始算法代码，轻柔档在柔和上色结果与原图之间进行 50% 混合。
+未使用其可选重绘、修补或超分功能。

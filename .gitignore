@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+build/
+dist/
+_internal/
+/清影图片降噪.exe
+旧版备份*/
+*.log
+.env
+.env.*
+!.env.example
+*.zip
+.DS_Store
+Thumbs.db

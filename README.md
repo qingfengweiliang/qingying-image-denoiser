@@ -31,9 +31,10 @@ Waifu2x 和 Real-CUGAN 需要支持 Vulkan 的显卡及驱动；其他算法使�
 
 ## 从源码运行（Windows）
 
-本版本在 Python 3.14 x64 上构建并测试。仓库内含所需的原生引擎和模型；请完整下载或克隆项目。
+本版本在 Python 3.14 x64 上构建并测试。仓库保存界面与处理源码、第三方许可和模型参数。原生 EXE、DLL 和模型权重随 Windows Release 提供；从源码使用 GPU 模式前，先用下面的脚本从已下载的 Windows ZIP 恢复 native 文件。
 
 ```powershell
+python restore_native.py "Qingying-2.5-Windows-x64.zip"
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe app.py

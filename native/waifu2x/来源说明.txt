@@ -1,0 +1,7 @@
+本文件夹包含 waifu2x-ncnn-vulkan 引擎、OpenMP 运行库以及原尺寸和放大所需的 CUNet noise1/2/3 模型。
+未修改引擎或模型；仅精简掉未使用的 noise0 模型。
+
+引擎项目：https://github.com/nihui/waifu2x-ncnn-vulkan
+原始 Waifu2x 项目：https://github.com/nagadomi/waifu2x
+CUNet 模型用于二次元图像降噪和放大，具体运行设置为 -s 1/2/4/8/16/32，-n 1/2/3。
+程序与模型各自保留其原作者的许可；引擎许可证见 LICENSE。

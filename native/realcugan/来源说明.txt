@@ -1,0 +1,8 @@
+Real-CUGAN ncnn Vulkan 引擎与 SE 模型：
+https://github.com/nihui/realcugan-ncnn-vulkan
+https://github.com/bilibili/ailab/tree/main/Real-CUGAN
+
+引擎及模型未修改，仅保留实际使用的文件。
+2× 模型提供 noise 1/2/3；3×、4× 模型仅启用 noise 3。
+原尺寸模式使用 2× 模型重建，再用 Lanczos 回到原始分辨率。
+引擎许可证见 LICENSE。
