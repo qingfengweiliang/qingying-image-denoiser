@@ -34,7 +34,7 @@ Waifu2x 和 Real-CUGAN 需要支持 Vulkan 的显卡及驱动；其他算法使�
 本版本在 Python 3.14 x64 上构建并测试。仓库保存界面与处理源码、第三方许可和模型参数。原生 EXE、DLL 和模型权重随 Windows Release 提供；从源码使用 GPU 模式前，先用下面的脚本从已下载的 Windows ZIP 恢复 native 文件。
 
 ```powershell
-python restore_native.py "Qingying-2.5-Windows-x64.zip"
+python scripts/restore_native.py "Qingying-2.5-Windows-x64.zip"
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe app.py
@@ -47,7 +47,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m PyInstaller --noconfirm build.spec
 ```
 
-输出位于 `dist/清影图片降噪/`。对外分享时还应一并附上项目的 `licenses/` 和 `使用说明.txt`，完整压缩该目录。
+输出位于 `dist/清影图片降噪/`。对外分享时还应一并附上项目的 `licenses/` 和 `docs/使用说明.txt`，完整压缩该目录。
 
 ## 2.5 更新
 
@@ -62,4 +62,4 @@ python -m venv .venv
 
 本项目调用 [waifu2x-ncnn-vulkan](https://github.com/nihui/waifu2x-ncnn-vulkan)、[realcugan-ncnn-vulkan](https://github.com/nihui/realcugan-ncnn-vulkan)、[AI Image Rehab](https://github.com/BlairKaiser/ai-image-rehab)、OpenCV、NumPy、SciPy、Pillow 和 PySide6/Qt。
 
-第三方代码、引擎与模型保留原作者的许可证和来源说明，见 `licenses/`、`native/` 和 `third_party/`。本仓库尚未为原创界面代码指定独立开源许可证；公开可见不等于授权任意再分发。详细说明见 [使用说明](使用说明.txt) 与 [学习导航](GitHub学习导航.md)。
+第三方代码、引擎与模型保留原作者的许可证和来源说明，见 `licenses/`、`native/` 和 `third_party/`。本仓库尚未为原创界面代码指定独立开源许可证；公开可见不等于授权任意再分发。详细说明见 [使用说明](docs/使用说明.txt) 与 [学习导航](docs/学习导航.md)。

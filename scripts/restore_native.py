@@ -7,7 +7,7 @@ import zipfile
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('release_zip', type=Path)
 args = parser.parse_args()
-root = Path(__file__).resolve().parent
+root = Path(__file__).resolve().parent.parent
 count = 0
 with zipfile.ZipFile(args.release_zip) as archive:
     for member in archive.infolist():
