@@ -1,0 +1,40 @@
+plugins { id 'com.android.application'; id 'com.chaquo.python' }
+def signingFile = rootProject.file('signing.properties')
+def signingValues = new Properties()
+if (signingFile.exists()) signingFile.withInputStream { signingValues.load(it) }
+android {
+ namespace 'cn.qingying.denoiser'
+ compileSdk 35
+ ndkVersion '27.2.12479018'
+ defaultConfig {
+  applicationId 'cn.qingying.denoiser'; minSdk 24; targetSdk 35
+  versionCode 1; versionName '1.0.0'
+  testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+  ndk {
+   if (project.hasProperty('qingyingAbi')) abiFilters project.property('qingyingAbi')
+   else abiFilters 'arm64-v8a', 'x86_64'
+  }
+  externalNativeBuild { cmake { cppFlags '-std=c++17'; arguments '-DANDROID_STL=c++_static', '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON' } }
+ }
+ signingConfigs {
+  release {
+   if (signingFile.exists()) {
+    storeFile rootProject.file(signingValues['storeFile'])
+    storePassword signingValues['storePassword']
+    keyAlias signingValues['keyAlias']
+    keyPassword signingValues['keyPassword']
+   }
+  }
+ }
+ buildTypes { release { if (signingFile.exists()) signingConfig signingConfigs.release } }
+ externalNativeBuild { cmake { path 'src/main/cpp/CMakeLists.txt'; version '3.22.1' } }
+ packaging { jniLibs { useLegacyPackaging = false } }
+}
+chaquopy {
+ defaultConfig {
+  version '3.10'
+  pip { install 'numpy==1.23.3'; install 'Pillow==11.0.0'; install 'scipy==1.8.1'; install 'opencv-python==4.5.1.48' }
+ }
+}
+
+dependencies { androidTestImplementation 'androidx.test:runner:1.6.2'; androidTestImplementation 'junit:junit:4.13.2' }

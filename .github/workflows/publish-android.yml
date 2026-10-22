@@ -1,0 +1,82 @@
+name: Publish signed Android release
+on:
+  push:
+    branches: ['delivery/android-*']
+  workflow_dispatch:
+    inputs:
+      transfer_ref:
+        description: 'Temporary delivery branch containing verified public assets'
+        required: true
+        default: 'delivery/android-1.0.0'
+permissions:
+  contents: write
+concurrency:
+  group: publish-signed-android
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TRANSFER_REF: ${{ inputs.transfer_ref || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.transfer_ref || github.ref_name }}
+          persist-credentials: false
+      - name: Assemble and verify already-signed public assets
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,re,shutil,zipfile
+          from pathlib import Path
+          meta=json.loads(Path('payload/artifact.json').read_text())
+          assert re.fullmatch(r'android-v\d+\.\d+\.\d+',meta['tag'])
+          assert re.fullmatch(r'[0-9a-f]{40}',meta['source_sha'])
+          for key in ('apk_name','zip_name'):
+              assert re.fullmatch(r'[A-Za-z0-9._-]+',meta[key])
+          out=Path('package');out.mkdir()
+          with (out/meta['zip_name']).open('wb') as target:
+              parts=sorted(Path('payload').glob('delivery.zip.part-*'))
+              assert parts,'Missing delivery archive parts'
+              for part in parts:
+                  with part.open('rb') as source:shutil.copyfileobj(source,target)
+          with zipfile.ZipFile(out/meta['zip_name']) as z:
+              assert z.testzip() is None
+              for name in z.namelist():
+                  p=Path(name)
+                  assert p.name not in {'password.txt','signing.properties','local.properties'}
+                  assert p.suffix not in {'.jks','.keystore'}
+              with z.open(meta['apk_name']) as source,(out/meta['apk_name']).open('wb') as target:
+                  shutil.copyfileobj(source,target)
+          sums=Path('payload/SHA256SUMS.txt')
+          expected={line.split()[1]:line.split()[0] for line in sums.read_text().splitlines()}
+          assert set(expected)=={meta['apk_name'],meta['zip_name']}
+          for name,digest in expected.items():
+              assert hashlib.sha256((out/name).read_bytes()).hexdigest()==digest,name
+          shutil.copy(sums,out/'SHA256SUMS.txt')
+          shutil.copy('payload/release-notes.md',out/'release-notes.md')
+          with open(os.environ['GITHUB_ENV'],'a') as env:
+              for key,value in [('TAG',meta['tag']),('SOURCE_SHA',meta['source_sha']),('APK_NAME',meta['apk_name']),('ZIP_NAME',meta['zip_name'])]:
+                  env.write(f'{key}={value}\n')
+          PY
+      - name: Upload assets and publish stable release
+        working-directory: package
+        shell: bash
+        run: |
+          if gh release view "$TAG" --json isDraft > release-state.json 2>/dev/null; then
+            python3 -c 'import json; assert json.load(open("release-state.json"))["isDraft"], "Refusing to replace an already-published release"'
+          else
+            gh release create "$TAG" --draft --target "$SOURCE_SHA" --title '清影 Android 1.0.0' --notes-file release-notes.md
+          fi
+          gh release upload "$TAG" "$APK_NAME" "$ZIP_NAME" SHA256SUMS.txt --clobber
+          gh release edit "$TAG" --draft=false --prerelease=false --latest --title '清影 Android 1.0.0' --notes-file release-notes.md
+          gh release view "$TAG" --json url,assets >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove completed temporary transfer branch
+        shell: bash
+        run: |
+          case "$TRANSFER_REF" in
+            delivery/android-*) gh api -X DELETE "repos/$GH_REPO/git/refs/heads/$TRANSFER_REF" ;;
+            *) echo 'Retaining non-delivery branch.' ;;
+          esac

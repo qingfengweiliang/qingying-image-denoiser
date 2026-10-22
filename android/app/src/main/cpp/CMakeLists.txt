@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.22)
+project(qingying)
+set(ncnn_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../vendor/ncnn/${ANDROID_ABI}/lib/cmake/ncnn)
+find_package(ncnn REQUIRED)
+find_package(OpenMP REQUIRED)
+add_library(qingying SHARED bridge.cpp waifu2x.cpp realcugan.cpp)
+target_link_libraries(qingying ncnn android jnigraphics log OpenMP::OpenMP_CXX)
+target_link_options(qingying PRIVATE -Wl,-z,max-page-size=16384 -static-openmp)

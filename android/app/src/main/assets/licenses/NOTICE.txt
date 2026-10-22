@@ -1,0 +1,14 @@
+清影 Android 1.0.0
+
+基于原项目 52f748b5b50259dfd837ea5bda7b5f1bf73d0244。
+Waifu2x: nihui/waifu2x-ncnn-vulkan 64914665c45893135c9e50c1c296170a121b9f77 (MIT)。
+Real-CUGAN: nihui/realcugan-ncnn-vulkan 395302c5c70f1bff604c974e92e0a87e45c9f9ee (MIT)。
+ncnn: Tencent/ncnn 20250503 (BSD 3-Clause)。模型来自上述上游仓库。
+AI Image Rehab: 沿用原项目 third_party/deripple.py，见 AI-Image-Rehab 目录。
+其余运行依赖：Chaquopy、CPython 3.10、NumPy 1.23.3、SciPy 1.8.1、Pillow 11.0.0、OpenCV 4.5.1.48 及相应运行库。
+原项目提供的第三方许可说明随包保留；各 Python 包内另含其发行版元数据和许可文件。
+
+移植修改：原生中文安卓界面、JNI 桥接、CPU 推理；仅在有 Vulkan 设备时设置设备；
+小图反射边界不足时改用复制边界；Real-CUGAN 使用 syncgap=1；
+透明度独立缩放并处理安卓预乘 alpha，避开上游 RGBA 分块复制问题。
+不申请联网和广泛存储权限，不上传图片。导出不保留 EXIF/GPS/ICC。
