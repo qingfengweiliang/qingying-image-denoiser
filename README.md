@@ -62,4 +62,4 @@ python -m venv .venv
 
 本项目调用 [waifu2x-ncnn-vulkan](https://github.com/nihui/waifu2x-ncnn-vulkan)、[realcugan-ncnn-vulkan](https://github.com/nihui/realcugan-ncnn-vulkan)、[AI Image Rehab](https://github.com/BlairKaiser/ai-image-rehab)、OpenCV、NumPy、SciPy、Pillow 和 PySide6/Qt。
 
-第三方代码、引擎与模型保留原作者的许可证和来源说明，见 `licenses/`、`native/` 和 `third_party/`。本仓库尚未为原创界面代码指定独立开源许可证；公开可见不等于授权任意再分发。详细说明见 [使用说明](docs/使用说明.txt) 与 [学习导航](docs/学习导航.md)。
+第三方代码、引擎与模型保留原作者的许可证和来源说明，见 `licenses/`、`native/` 和 `third_party/`。本仓库尚未为原创界面代码指定独立开源许可证；公开可见不等于授权任意再分发。详细说明见 [使用说明](docs/使用说明.txt)。
