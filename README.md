@@ -28,7 +28,7 @@ Windows 下载后**完整解压**，运行 `清影图片降噪.exe`，保留同�
 
 六种算法均在手机本地运行。两种 AI 引擎使用 CPU，不要求手机支持 Vulkan；大图及放大处理可能较慢。首版面向**单张图片，最高 4× 放大**，不含批量处理和任务取消。输入上限 1600 万像素，处理上限还会按算法和设备内存收紧。
 
-[安卓源码与构建说明](android/README.md) · [Android 1.0.0 更新说明](docs/releases/android-v1.0.0.md) · [构建与验证记录](docs/android-validation.md)
+[安卓源码与构建说明](android/README.md) · [Android 1.0.0 更新说明](docs/releases/android-v1.0.0.md) · [构建与验证记录](docs/android-validation.md) · [发布维护说明](docs/Android-Release-Handoff.md)
 
 已通过模拟器端到端测试、核心模型回归、Release 构建、Lint 与签名检查；**尚未进行 ARM64 实体手机测试**，不同机型的性能与内存兼容性仍需反馈。
 
