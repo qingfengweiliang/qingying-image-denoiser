@@ -9,6 +9,7 @@ android {
  defaultConfig {
   applicationId 'cn.qingying.denoiser'; minSdk 24; targetSdk 35
   versionCode 2; versionName '1.1.0-preview'
+  resValue 'string', 'app_name', '清影 · 图片降噪'
   testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
   ndk {
    if (project.hasProperty('qingyingAbi')) abiFilters project.property('qingyingAbi')
@@ -26,7 +27,13 @@ android {
    }
   }
  }
- buildTypes { release { if (signingFile.exists()) signingConfig signingConfigs.release } }
+ buildTypes {
+  debug {
+   applicationIdSuffix '.preview'
+   resValue 'string', 'app_name', '清影 · GPU 预览'
+  }
+  release { if (signingFile.exists()) signingConfig signingConfigs.release }
+ }
  externalNativeBuild { cmake { path 'src/main/cpp/CMakeLists.txt'; version '3.22.1' } }
  packaging { jniLibs { useLegacyPackaging = false } }
 }

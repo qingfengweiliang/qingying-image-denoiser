@@ -34,7 +34,7 @@
 
 Vulkan 是可选加速能力，不增加最低系统要求。运行库仍动态检测驱动，CPU 模式可在无 Vulkan 设备使用。GPU 驱动崩溃或系统杀进程不能通过普通错误回退恢复；遇到闪退时重开并手动选择 CPU。16 KB 内存页和不同品牌 ARM64 手机仍需要实机验证。
 
-工作流的 Debug APK 由调试密钥签名，不能直接覆盖用原始私有密钥签名的正式 APK。要覆盖更新，需用原来的私有签名构建 Release；不能用临时密钥冒充正式更新。原签名密钥不应放进源码、PR 或测试包。预览版本增加到 versionCode 2，versionName 1.1.0-preview。
+工作流的 Debug APK 使用独立包名 `cn.qingying.denoiser.preview`，名称为“清影 · GPU 预览”，可与旧正式版同时安装。它由调试密钥签名，不能作为正式包的覆盖更新。要覆盖更新，需用原来的私有签名构建 Release；不能用临时密钥冒充正式更新。原签名密钥不应放进源码、PR 或测试包。预览版本增加到 versionCode 2，versionName 1.1.0-preview。
 
 ## 从源码构建
 

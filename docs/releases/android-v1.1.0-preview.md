@@ -19,6 +19,6 @@
 
 速度取决于手机 GPU、驱动、图片与算法；软件 Vulkan 测试只能证明相关代码路径可执行，不能证明手机实际提速。ARM64 真机、不同品牌 GPU 与 16 KB 内存页设备仍需验证。GPU 驱动导致的原生崩溃不能依靠普通错误回退恢复。
 
-Debug 测试包不能覆盖原签名的正式包。正式更新必须使用原私有签名密钥，且保持版本代码递增。当前源码设置 `versionCode 2`、`versionName 1.1.0-preview`。
+Debug 测试包使用独立包名 `cn.qingying.denoiser.preview`，可与旧正式版同时安装；不能作为正式包的覆盖更新。正式更新必须使用原私有签名密钥，且保持版本代码递增。当前源码设置 `versionCode 2`、`versionName 1.1.0-preview`。
 
 [完整安卓说明](../../android/README.md) · [本次验证记录](../android-gpu-validation.md) · [Android 1.0.0 历史验证](../android-validation.md)

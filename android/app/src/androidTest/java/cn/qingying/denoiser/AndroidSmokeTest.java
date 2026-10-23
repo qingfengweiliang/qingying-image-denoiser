@@ -19,7 +19,7 @@ public class AndroidSmokeTest {
     Intent launch =
         inst.getTargetContext()
             .getPackageManager()
-            .getLaunchIntentForPackage("cn.qingying.denoiser");
+            .getLaunchIntentForPackage(inst.getTargetContext().getPackageName());
     MainActivity activity = (MainActivity) inst.startActivitySync(launch);
     awaitIdle(inst, activity);
     assertNotNull(activity.processor);
@@ -90,7 +90,7 @@ public class AndroidSmokeTest {
   public void cpuAndAutoReportCompletedTiles() throws Exception {
     Instrumentation inst = InstrumentationRegistry.getInstrumentation();
     MainActivity activity = (MainActivity) inst.startActivitySync(
-        inst.getTargetContext().getPackageManager().getLaunchIntentForPackage("cn.qingying.denoiser"));
+        inst.getTargetContext().getPackageManager().getLaunchIntentForPackage(inst.getTargetContext().getPackageName()));
     awaitIdle(inst, activity);
     Bitmap source = Bitmap.createBitmap(129, 3, Bitmap.Config.ARGB_8888);
     source.eraseColor(Color.argb(128, 96, 144, 192));
@@ -129,7 +129,7 @@ public class AndroidSmokeTest {
   public void uiShowsTwoPassProgressAndCompletion() throws Exception {
     Instrumentation inst = InstrumentationRegistry.getInstrumentation();
     MainActivity activity = (MainActivity) inst.startActivitySync(
-        inst.getTargetContext().getPackageManager().getLaunchIntentForPackage("cn.qingying.denoiser"));
+        inst.getTargetContext().getPackageManager().getLaunchIntentForPackage(inst.getTargetContext().getPackageName()));
     awaitIdle(inst, activity);
     Bitmap fixture = Bitmap.createBitmap(129, 65, Bitmap.Config.ARGB_8888);
     fixture.eraseColor(Color.argb(160, 96, 144, 192));

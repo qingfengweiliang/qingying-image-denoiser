@@ -108,7 +108,7 @@ jobs:
           script: |
             ./gradlew --no-daemon :app:connectedDebugAndroidTest
             mkdir -p build/device-screenshots
-            adb pull /sdcard/Android/data/cn.qingying.denoiser/files/qa build/device-screenshots
+            adb pull /sdcard/Android/data/cn.qingying.denoiser.preview/files/qa build/device-screenshots
       - uses: actions/upload-artifact@v4
         if: always()
         with:
