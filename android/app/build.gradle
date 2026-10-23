@@ -8,7 +8,8 @@ android {
  ndkVersion '27.2.12479018'
  defaultConfig {
   applicationId 'cn.qingying.denoiser'; minSdk 24; targetSdk 35
-  versionCode 1; versionName '1.0.0'
+  versionCode 2; versionName '1.1.0-preview'
+  resValue 'string', 'app_name', '清影 · 图片降噪'
   testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
   ndk {
    if (project.hasProperty('qingyingAbi')) abiFilters project.property('qingyingAbi')
@@ -26,14 +27,28 @@ android {
    }
   }
  }
- buildTypes { release { if (signingFile.exists()) signingConfig signingConfigs.release } }
+ buildTypes {
+  debug {
+   applicationIdSuffix '.preview'
+   resValue 'string', 'app_name', '清影 · GPU 预览'
+  }
+  release { if (signingFile.exists()) signingConfig signingConfigs.release }
+ }
  externalNativeBuild { cmake { path 'src/main/cpp/CMakeLists.txt'; version '3.22.1' } }
  packaging { jniLibs { useLegacyPackaging = false } }
 }
 chaquopy {
  defaultConfig {
   version '3.10'
-  pip { install 'numpy==1.23.3'; install 'Pillow==11.0.0'; install 'scipy==1.8.1'; install 'opencv-python==4.5.1.48' }
+  pip {
+   if (project.hasProperty('qingyingRuntimeWheels')) {
+    options '--no-index', '--find-links', project.property('qingyingRuntimeWheels').toString()
+    install 'qingying-runtime==1.0.0'
+   } else {
+    options '--only-binary=:all:'
+    install 'numpy==1.23.3'; install 'Pillow==11.0.0'; install 'scipy==1.8.1'; install 'opencv-python==4.5.1.48'
+   }
+  }
  }
 }
 

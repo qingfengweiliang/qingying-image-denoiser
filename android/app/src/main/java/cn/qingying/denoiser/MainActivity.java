@@ -17,8 +17,13 @@ public class MainActivity extends Activity {
     System.loadLibrary("qingying");
   }
 
-  native void nativeProcess(
-      Bitmap source, Bitmap dest, String root, int engine, int strength, int scale);
+  public interface NativeProgress {
+    void onProgress(int done, int total, String device);
+  }
+
+  native String nativeGpuName();
+  native String nativeProcess(Bitmap source, Bitmap dest, String root, int engine,
+      int strength, int scale, int backend, NativeProgress listener);
 
   final ExecutorService worker = Executors.newSingleThreadExecutor();
   final String[] modes = {
@@ -29,14 +34,23 @@ public class MainActivity extends Activity {
     "双边滤波 · 快速保边",
     "中值滤波 · 去除颗粒"
   };
-  Spinner algorithm, scale, format;
+  Spinner algorithm, scale, format, backend;
   SeekBar strength;
-  TextView status, strengthText;
+  TextView status, strengthText, deviceText;
   Button open, run, save;
   ProgressBar progress;
   Preview preview;
   Bitmap original, result;
   boolean busy = false, dead = false;
+  final Handler progressHandler = new Handler(Looper.getMainLooper());
+  volatile ProcessingProgress processingProgress;
+  final Runnable progressTicker = new Runnable() {
+    public void run() {
+      if (dead || !busy || processingProgress == null) return;
+      renderProgress();
+      progressHandler.postDelayed(this, 250);
+    }
+  };
   File sourceFile, resultFile;
   String exportFormat = "PNG";
   PyObject processor;
@@ -122,9 +136,20 @@ public class MainActivity extends Activity {
     LinearLayout panel = new LinearLayout(this);
     panel.setOrientation(LinearLayout.VERTICAL);
     controls.addView(panel);
-    root.addView(controls, new LinearLayout.LayoutParams(-1, dp(207)));
+    root.addView(controls, new LinearLayout.LayoutParams(-1, dp(262)));
     algorithm = spinner(modes);
     panel.addView(algorithm);
+    backend = spinner(new String[] {"自动 · 优先 GPU", "CPU · 兼容模式"});
+    backend.setSelection(getPreferences(MODE_PRIVATE).getInt("backend", 0) == 1 ? 1 : 0);
+    backend.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+      public void onNothingSelected(AdapterView<?> parent) {}
+      public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+        getPreferences(MODE_PRIVATE).edit().putInt("backend", position).apply();
+      }
+    });
+    panel.addView(backend);
+    deviceText = label("正在检测 Vulkan GPU…", 12);
+    panel.addView(deviceText);
     LinearLayout options = row();
     options.addView(label("输出倍率", 14));
     scale = spinner(new String[] {"1×", "2×", "4×"});
@@ -174,11 +199,14 @@ public class MainActivity extends Activity {
           }
         });
     progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+    progress.setMax(100);
     progress.setIndeterminate(true);
     progress.setVisibility(View.INVISIBLE);
     root.addView(progress, new LinearLayout.LayoutParams(-1, dp(4)));
     status = label("本地离线处理 · 图片不会上传", 12);
     status.setPadding(0, dp(6), 0, dp(6));
+    status.setMinLines(3);
+    status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
     root.addView(status);
     LinearLayout actions = row();
     open = button("打开图片");
@@ -216,11 +244,15 @@ public class MainActivity extends Activity {
             processor = Python.getInstance().getModule("processing");
             copyAssets("models-cunet");
             copyAssets("models-se");
+            final String gpu = nativeGpuName();
             Bitmap restoredSource = sourceFile.isFile() ? decode(sourceFile) : null;
             Bitmap restoredResult =
                 restoredSource != null && resultFile.isFile() ? decode(resultFile) : null;
             ui(
                 () -> {
+                  deviceText.setText(gpu == null || gpu.isEmpty()
+                      ? "当前设备使用 CPU · 未检测到可用 Vulkan GPU"
+                      : "可用 GPU：" + gpu + " · 仅加速两种 AI 算法");
                   original = restoredSource;
                   result = restoredResult;
                   preview.reset();
@@ -235,10 +267,10 @@ public class MainActivity extends Activity {
   void showAbout() {
     StringBuilder text =
         new StringBuilder(
-            "清影 Android 1.0.0\n\n"
-                + "所有处理均在手机本地完成。AI 推理使用 CPU，处理大图可能耗时较长。\n\n"
+            "清影 Android · GPU 预览版\n\n"
+                + "所有处理均在手机本地完成。两种 AI 算法自动优先使用 Vulkan GPU，可切换 CPU；其余算法使用 CPU。大图可能耗时较长。\n\n"
                 + "Waifu2x：1/2/4×；Real-CUGAN：1/2/3/4×，3/4× 固定高强度。其他算法为 1×。\n\n"
-                + "双指缩放，拖动分割线对比。JPEG 将透明区域合成为白色。导出不保留 EXIF/GPS/ICC 信息。\n\n"
+                + "AI 进度按实际完成的图块步骤统计，显示耗时、速度和预计剩余时间；其他算法显示处理阶段。\n\n双指缩放，拖动分割线对比。JPEG 将透明区域合成为白色。导出不保留 EXIF/GPS/ICC 信息。\n\n"
                 + "手机首版暂不提供批量处理。处理时请保持应用打开。\n\n"
                 + "第三方组件与许可：\n");
     try {
@@ -318,17 +350,63 @@ public class MainActivity extends Activity {
 
   void setBusy(boolean b, String message) {
     busy = b;
+    progressHandler.removeCallbacks(progressTicker);
+    if (b) {
+      progress.setIndeterminate(true);
+      progress.setProgress(0);
+      processingProgress = new ProcessingProgress(SystemClock.elapsedRealtime());
+      processingProgress.stage(message);
+      progressHandler.post(progressTicker);
+    } else {
+      processingProgress = null;
+    }
     if (b) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     open.setEnabled(!b);
     run.setEnabled(!b && original != null);
     save.setEnabled(!b && result != null);
     algorithm.setEnabled(!b);
+    backend.setEnabled(!b);
     scale.setEnabled(!b);
     format.setEnabled(!b);
     progress.setVisibility(b ? View.VISIBLE : View.INVISIBLE);
     status.setText(message);
     updateStrength();
+  }
+
+  static String duration(long seconds) {
+    return seconds >= 3600
+        ? String.format(java.util.Locale.ROOT, "%d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
+        : String.format(java.util.Locale.ROOT, "%02d:%02d", seconds / 60, seconds % 60);
+  }
+
+  void renderProgress() {
+    ProcessingProgress tracker = processingProgress;
+    if (tracker == null) return;
+    ProcessingProgress.Snapshot s = tracker.snapshot(SystemClock.elapsedRealtime());
+    progress.setIndeterminate(!s.measurable);
+    String elapsed = "已用 " + duration(s.elapsed / 1000);
+    if (s.measurable) {
+      progress.setProgress(s.percent());
+      String estimate = s.rate > 0
+          ? String.format(java.util.Locale.ROOT, "%.2f 步/秒 · 剩余约 %s", s.rate, duration(s.remaining))
+          : "正在估算速度与剩余时间";
+      status.setText("AI 推理 " + s.percent() + "%"
+          + (s.passes > 1 ? " · 第 " + s.pass + "/" + s.passes + " 轮" : "")
+          + " · " + s.completed + "/" + s.total + " 图块步骤\n"
+          + s.device + "\n" + elapsed + " · " + estimate);
+      progress.setContentDescription("AI 推理已完成百分之" + s.percent());
+    } else {
+      status.setText(s.stage + (s.device.isEmpty() ? "" : " · " + s.device)
+          + "\n" + elapsed + "\n此阶段尚无可计算的剩余时间");
+      progress.setContentDescription(s.stage);
+    }
+  }
+
+  // Called from Python on the worker thread, never directly mutates Android views.
+  public void onPythonStage(String stage) {
+    ProcessingProgress tracker = processingProgress;
+    if (tracker != null) tracker.stage(stage);
   }
 
   void fail(Throwable e) {
@@ -409,9 +487,11 @@ public class MainActivity extends Activity {
   }
 
   void process() {
+    if (busy || original == null) return;
     final int mode = algorithm.getSelectedItemPosition(),
         s = strength.getProgress() + 1,
-        f = factor();
+        f = factor(),
+        selectedBackend = backend.getSelectedItemPosition();
     int peakFactor = mode == 1 && f == 1 ? 2 : f;
     long pixels = (long) original.getWidth() * original.getHeight() * peakFactor * peakFactor;
     long limit =
@@ -424,24 +504,45 @@ public class MainActivity extends Activity {
           .show();
       return;
     }
-    setBusy(true, "正在" + modes[mode].split(" · ")[0] + "处理，请稍候…");
+    setBusy(true, "正在准备处理…");
+    final ProcessingProgress tracker = processingProgress;
     worker.execute(
         () -> {
           File temp = new File(getCacheDir(), "processed.png");
           try {
             Bitmap output;
+            String usedBackend = "CPU";
+            String fallbackNote = "";
             if (mode < 2) {
               Bitmap current = original;
               int passes = mode == 0 && f == 4 ? 2 : 1;
+              int totalWork = ProcessingProgress.tiles(original.getWidth(), original.getHeight(), mode);
+              if (passes == 2) totalWork += ProcessingProgress.tiles(original.getWidth() * 2, original.getHeight() * 2, mode);
+              int completedWork = 0;
+              int requestedBackend = selectedBackend;
               for (int i = 0; i < passes; i++) {
+                int work = ProcessingProgress.tiles(current.getWidth(), current.getHeight(), mode);
+                tracker.beginPass(completedWork, work, totalWork, i + 1, passes);
                 int sf = mode == 0 ? (f == 1 ? 1 : 2) : (f == 1 ? 2 : f);
                 Bitmap next =
                     Bitmap.createBitmap(
                         current.getWidth() * sf, current.getHeight() * sf, Bitmap.Config.ARGB_8888);
-                nativeProcess(current, next, getFilesDir().getPath(), mode, s, sf);
+                try {
+                  usedBackend = nativeProcess(current, next, getFilesDir().getPath(), mode, s, sf,
+                      requestedBackend, (done, count, device) ->
+                          tracker.update(done, count, device, SystemClock.elapsedRealtime()));
+                } catch (Throwable e) {
+                  next.recycle();
+                  if (current != original) current.recycle();
+                  throw e;
+                }
+                if (usedBackend.startsWith("CPU")) requestedBackend = 1;
+                if (usedBackend.contains("已回退")) fallbackNote = "（GPU 执行失败，已回退）";
+                completedWork += work;
                 if (current != original) current.recycle();
                 current = next;
               }
+              tracker.stage("AI 推理已完成 · 正在整理与编码结果");
               if (mode == 1 && f == 1) {
                 output =
                     Bitmap.createScaledBitmap(
@@ -453,12 +554,17 @@ public class MainActivity extends Activity {
                   throw new IOException("编码失败");
               }
             } else {
-              processor.callAttr("process", sourceFile.getPath(), temp.getPath(), mode, s);
+              processor.callAttr("process", sourceFile.getPath(), temp.getPath(), mode, s, this);
               output = decode(temp);
             }
             if (output == null) throw new IOException("处理结果为空");
             if (!temp.renameTo(resultFile)) throw new IOException("无法保存处理结果");
             final Bitmap ready = output;
+            final String finalBackend = mode < 2
+                ? (usedBackend.equals("CPU") ? usedBackend + fallbackNote : usedBackend) : "CPU";
+            final long elapsed = tracker.snapshot(SystemClock.elapsedRealtime()).elapsed;
+            final double megapixelsPerSecond = (long) original.getWidth() * original.getHeight()
+                / 1000000.0 / Math.max(.001, elapsed / 1000.0);
             ui(
                 () -> {
                   result = ready;
@@ -466,7 +572,10 @@ public class MainActivity extends Activity {
                   preview.reset();
                   setBusy(
                       false,
-                      "处理完成 · " + ready.getWidth() + " × " + ready.getHeight() + " · 拖动分割线对比");
+                      "处理完成 · " + ready.getWidth() + " × " + ready.getHeight() + " · " + finalBackend
+                          + "\n总用时 " + duration(elapsed / 1000)
+                          + String.format(java.util.Locale.ROOT, " · %.3f MP/秒（输入像素）", megapixelsPerSecond)
+                          + "\n拖动分割线对比，可保存结果");
                 });
           } catch (Throwable e) {
             fail(e);
@@ -479,6 +588,7 @@ public class MainActivity extends Activity {
   @Override
   protected void onDestroy() {
     dead = true;
+    progressHandler.removeCallbacks(progressTicker);
     worker.shutdown();
     super.onDestroy();
   }

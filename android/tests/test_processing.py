@@ -9,6 +9,26 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'app/src/main/pytho
 import processing
 
 class ProcessingTests(unittest.TestCase):
+    def test_stage_reporting_does_not_change_pixels(self):
+        class Listener:
+            def __init__(self):
+                self.stages = []
+
+            def onPythonStage(self, stage):
+                self.stages.append(stage)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            Image.new('RGBA', (19, 17), (96, 144, 192, 128)).save(root / 'in.png')
+            for mode in range(2, 6):
+                listener = Listener()
+                processing.process(str(root / 'in.png'), str(root / 'reported.png'), mode, 2, listener)
+                processing.process(str(root / 'in.png'), str(root / 'plain.png'), mode, 2)
+                self.assertEqual(len(listener.stages), 4)
+                self.assertEqual([s.split(' · ')[0] for s in listener.stages],
+                                 [f'步骤 {n}/4' for n in range(1, 5)])
+                self.assertEqual((root / 'reported.png').read_bytes(), (root / 'plain.png').read_bytes())
+
     def test_denoising_alpha_and_exports(self):
         rng = np.random.default_rng(7)
         rgba = np.empty((48, 64, 4), np.uint8)

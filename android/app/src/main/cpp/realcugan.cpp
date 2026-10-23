@@ -76,15 +76,16 @@ RealCUGAN::~RealCUGAN()
     {
         delete realcugan_preproc;
         delete realcugan_postproc;
+        delete realcugan_4x_postproc;
     }
 
-    bicubic_2x->destroy_pipeline(net.opt);
+    if (bicubic_2x) bicubic_2x->destroy_pipeline(net.opt);
     delete bicubic_2x;
 
-    bicubic_3x->destroy_pipeline(net.opt);
+    if (bicubic_3x) bicubic_3x->destroy_pipeline(net.opt);
     delete bicubic_3x;
 
-    bicubic_4x->destroy_pipeline(net.opt);
+    if (bicubic_4x) bicubic_4x->destroy_pipeline(net.opt);
     delete bicubic_4x;
 }
 
@@ -107,27 +108,27 @@ int RealCUGAN::load(const std::string& parampath, const std::string& modelpath)
         FILE* fp = _wfopen(parampath.c_str(), L"rb");
         if (!fp)
         {
-            fwprintf(stderr, L"_wfopen %ls failed\n", parampath.c_str());
+            throw std::runtime_error("无法读取模型参数");
         }
 
-        net.load_param(fp);
-
+        int code = net.load_param(fp);
         fclose(fp);
+        require_ncnn(code);
     }
     {
         FILE* fp = _wfopen(modelpath.c_str(), L"rb");
         if (!fp)
         {
-            fwprintf(stderr, L"_wfopen %ls failed\n", modelpath.c_str());
+            throw std::runtime_error("无法读取模型权重");
         }
 
-        net.load_model(fp);
-
+        int code = net.load_model(fp);
         fclose(fp);
+        require_ncnn(code);
     }
 #else
-    net.load_param(parampath.c_str());
-    net.load_model(modelpath.c_str());
+    require_ncnn(net.load_param(parampath.c_str()));
+    require_ncnn(net.load_model(modelpath.c_str()));
 #endif
 
     // initialize preprocess and postprocess pipeline
@@ -148,15 +149,15 @@ int RealCUGAN::load(const std::string& parampath, const std::string& modelpath)
                 if (spirv.empty())
                 {
                     if (tta_mode)
-                        compile_spirv_module(realcugan_preproc_tta_comp_data, sizeof(realcugan_preproc_tta_comp_data), net.opt, spirv);
+                        require_ncnn(compile_spirv_module(realcugan_preproc_tta_comp_data, net.opt, spirv));
                     else
-                        compile_spirv_module(realcugan_preproc_comp_data, sizeof(realcugan_preproc_comp_data), net.opt, spirv);
+                        require_ncnn(compile_spirv_module(realcugan_preproc_comp_data, net.opt, spirv));
                 }
             }
 
             realcugan_preproc = new ncnn::Pipeline(vkdev);
             realcugan_preproc->set_optimal_local_size_xyz(8, 8, 3);
-            realcugan_preproc->create(spirv.data(), spirv.size() * 4, specializations);
+            require_ncnn(realcugan_preproc->create(spirv.data(), spirv.size() * 4, specializations));
         }
 
         {
@@ -167,15 +168,15 @@ int RealCUGAN::load(const std::string& parampath, const std::string& modelpath)
                 if (spirv.empty())
                 {
                     if (tta_mode)
-                        compile_spirv_module(realcugan_postproc_tta_comp_data, sizeof(realcugan_postproc_tta_comp_data), net.opt, spirv);
+                        require_ncnn(compile_spirv_module(realcugan_postproc_tta_comp_data, net.opt, spirv));
                     else
-                        compile_spirv_module(realcugan_postproc_comp_data, sizeof(realcugan_postproc_comp_data), net.opt, spirv);
+                        require_ncnn(compile_spirv_module(realcugan_postproc_comp_data, net.opt, spirv));
                 }
             }
 
             realcugan_postproc = new ncnn::Pipeline(vkdev);
             realcugan_postproc->set_optimal_local_size_xyz(8, 8, 3);
-            realcugan_postproc->create(spirv.data(), spirv.size() * 4, specializations);
+            require_ncnn(realcugan_postproc->create(spirv.data(), spirv.size() * 4, specializations));
         }
 
         {
@@ -186,15 +187,15 @@ int RealCUGAN::load(const std::string& parampath, const std::string& modelpath)
                 if (spirv.empty())
                 {
                     if (tta_mode)
-                        compile_spirv_module(realcugan_4x_postproc_tta_comp_data, sizeof(realcugan_4x_postproc_tta_comp_data), net.opt, spirv);
+                        require_ncnn(compile_spirv_module(realcugan_4x_postproc_tta_comp_data, net.opt, spirv));
                     else
-                        compile_spirv_module(realcugan_4x_postproc_comp_data, sizeof(realcugan_4x_postproc_comp_data), net.opt, spirv);
+                        require_ncnn(compile_spirv_module(realcugan_4x_postproc_comp_data, net.opt, spirv));
                 }
             }
 
             realcugan_4x_postproc = new ncnn::Pipeline(vkdev);
             realcugan_4x_postproc->set_optimal_local_size_xyz(8, 8, 3);
-            realcugan_4x_postproc->create(spirv.data(), spirv.size() * 4, specializations);
+            require_ncnn(realcugan_4x_postproc->create(spirv.data(), spirv.size() * 4, specializations));
         }
     }
 
@@ -209,7 +210,7 @@ int RealCUGAN::load(const std::string& parampath, const std::string& modelpath)
         pd.set(2, 2.f);
         bicubic_2x->load_param(pd);
 
-        bicubic_2x->create_pipeline(net.opt);
+        require_ncnn(bicubic_2x->create_pipeline(net.opt));
     }
     {
         bicubic_3x = ncnn::create_layer("Interp");
@@ -221,7 +222,7 @@ int RealCUGAN::load(const std::string& parampath, const std::string& modelpath)
         pd.set(2, 3.f);
         bicubic_3x->load_param(pd);
 
-        bicubic_3x->create_pipeline(net.opt);
+        require_ncnn(bicubic_3x->create_pipeline(net.opt));
     }
     {
         bicubic_4x = ncnn::create_layer("Interp");
@@ -233,7 +234,7 @@ int RealCUGAN::load(const std::string& parampath, const std::string& modelpath)
         pd.set(2, 4.f);
         bicubic_4x->load_param(pd);
 
-        bicubic_4x->create_pipeline(net.opt);
+        require_ncnn(bicubic_4x->create_pipeline(net.opt));
     }
 
     return 0;
@@ -241,6 +242,7 @@ int RealCUGAN::load(const std::string& parampath, const std::string& modelpath)
 
 int RealCUGAN::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 {
+    progress.begin(((inimage.w + tilesize - 1) / tilesize) * ((inimage.h + tilesize - 1) / tilesize) * ((tilesize < std::max(inimage.w, inimage.h) && syncgap == 1) ? 5 : 1));
     bool syncgap_needed = tilesize < std::max(inimage.w, inimage.h);
 
     if (!vkdev)
@@ -283,8 +285,9 @@ int RealCUGAN::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
     const int TILE_SIZE_X = tilesize;
     const int TILE_SIZE_Y = tilesize;
 
-    ncnn::VkAllocator* blob_vkallocator = vkdev->acquire_blob_allocator();
-    ncnn::VkAllocator* staging_vkallocator = vkdev->acquire_staging_allocator();
+    ScopedGpuAllocators allocators(vkdev);
+    ncnn::VkAllocator* blob_vkallocator = allocators.blob;
+    ncnn::VkAllocator* staging_vkallocator = allocators.staging;
 
     ncnn::Option opt = net.opt;
     opt.blob_vkallocator = blob_vkallocator;
@@ -349,7 +352,7 @@ int RealCUGAN::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 
             if (xtiles > 1)
             {
-                cmd.submit_and_wait();
+                require_ncnn(cmd.submit_and_wait());
                 cmd.reset();
             }
         }
@@ -452,9 +455,9 @@ int RealCUGAN::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
                     ex.set_workspace_vkallocator(blob_vkallocator);
                     ex.set_staging_vkallocator(staging_vkallocator);
 
-                    ex.input("in0", in_tile_gpu[ti]);
+                    require_ncnn(ex.input("in0", in_tile_gpu[ti]));
 
-                    ex.extract("out0", out_tile_gpu[ti], cmd);
+                    require_ncnn(ex.extract("out0", out_tile_gpu[ti], cmd));
                 }
 
                 ncnn::VkMat out_alpha_tile_gpu;
@@ -610,9 +613,9 @@ int RealCUGAN::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
                     ex.set_workspace_vkallocator(blob_vkallocator);
                     ex.set_staging_vkallocator(staging_vkallocator);
 
-                    ex.input("in0", in_tile_gpu);
+                    require_ncnn(ex.input("in0", in_tile_gpu));
 
-                    ex.extract("out0", out_tile_gpu, cmd);
+                    require_ncnn(ex.extract("out0", out_tile_gpu, cmd));
                 }
 
                 ncnn::VkMat out_alpha_tile_gpu;
@@ -701,8 +704,9 @@ int RealCUGAN::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 
             if (xtiles > 1)
             {
-                cmd.submit_and_wait();
+                require_ncnn(cmd.submit_and_wait());
                 cmd.reset();
+                progress.advance();
             }
         }
 
@@ -717,7 +721,7 @@ int RealCUGAN::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 
             cmd.record_clone(out_gpu, out, opt);
 
-            cmd.submit_and_wait();
+            require_ncnn(cmd.submit_and_wait());
 
             if (!(opt.use_fp16_storage && opt.use_int8_storage))
             {
@@ -739,10 +743,10 @@ int RealCUGAN::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
                 }
             }
         }
+        if (xtiles == 1) progress.advance();
     }
 
-    vkdev->reclaim_blob_allocator(blob_vkallocator);
-    vkdev->reclaim_staging_allocator(staging_vkallocator);
+
 
     return 0;
 }
@@ -920,9 +924,9 @@ int RealCUGAN::process_cpu(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
                 {
                     ncnn::Extractor ex = net.create_extractor();
 
-                    ex.input("in0", in_tile[ti]);
+                    require_ncnn(ex.input("in0", in_tile[ti]));
 
-                    ex.extract("out0", out_tile[ti]);
+                    require_ncnn(ex.extract("out0", out_tile[ti]));
                 }
 
                 ncnn::Mat out_alpha_tile;
@@ -1068,9 +1072,9 @@ int RealCUGAN::process_cpu(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
                 {
                     ncnn::Extractor ex = net.create_extractor();
 
-                    ex.input("in0", in_tile);
+                    require_ncnn(ex.input("in0", in_tile));
 
-                    ex.extract("out0", out_tile);
+                    require_ncnn(ex.extract("out0", out_tile));
                 }
 
                 ncnn::Mat out_alpha_tile;
@@ -1158,6 +1162,7 @@ int RealCUGAN::process_cpu(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 #endif
                 }
             }
+            progress.advance();
         }
     }
 
@@ -1166,8 +1171,9 @@ int RealCUGAN::process_cpu(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 
 int RealCUGAN::process_se(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 {
-    ncnn::VkAllocator* blob_vkallocator = vkdev->acquire_blob_allocator();
-    ncnn::VkAllocator* staging_vkallocator = vkdev->acquire_staging_allocator();
+    ScopedGpuAllocators allocators(vkdev);
+    ncnn::VkAllocator* blob_vkallocator = allocators.blob;
+    ncnn::VkAllocator* staging_vkallocator = allocators.staging;
 
     ncnn::Option opt = net.opt;
     opt.blob_vkallocator = blob_vkallocator;
@@ -1209,16 +1215,16 @@ int RealCUGAN::process_se(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 
     cache.clear();
 
-    vkdev->reclaim_blob_allocator(blob_vkallocator);
-    vkdev->reclaim_staging_allocator(staging_vkallocator);
+
 
     return 0;
 }
 
 int RealCUGAN::process_se_rough(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 {
-    ncnn::VkAllocator* blob_vkallocator = vkdev->acquire_blob_allocator();
-    ncnn::VkAllocator* staging_vkallocator = vkdev->acquire_staging_allocator();
+    ScopedGpuAllocators allocators(vkdev);
+    ncnn::VkAllocator* blob_vkallocator = allocators.blob;
+    ncnn::VkAllocator* staging_vkallocator = allocators.staging;
 
     ncnn::Option opt = net.opt;
     opt.blob_vkallocator = blob_vkallocator;
@@ -1239,16 +1245,16 @@ int RealCUGAN::process_se_rough(const ncnn::Mat& inimage, ncnn::Mat& outimage) c
 
     cache.clear();
 
-    vkdev->reclaim_blob_allocator(blob_vkallocator);
-    vkdev->reclaim_staging_allocator(staging_vkallocator);
+
 
     return 0;
 }
 
 int RealCUGAN::process_se_very_rough(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 {
-    ncnn::VkAllocator* blob_vkallocator = vkdev->acquire_blob_allocator();
-    ncnn::VkAllocator* staging_vkallocator = vkdev->acquire_staging_allocator();
+    ScopedGpuAllocators allocators(vkdev);
+    ncnn::VkAllocator* blob_vkallocator = allocators.blob;
+    ncnn::VkAllocator* staging_vkallocator = allocators.staging;
 
     ncnn::Option opt = net.opt;
     opt.blob_vkallocator = blob_vkallocator;
@@ -1269,8 +1275,7 @@ int RealCUGAN::process_se_very_rough(const ncnn::Mat& inimage, ncnn::Mat& outima
 
     cache.clear();
 
-    vkdev->reclaim_blob_allocator(blob_vkallocator);
-    vkdev->reclaim_staging_allocator(staging_vkallocator);
+
 
     return 0;
 }
@@ -1421,7 +1426,7 @@ int RealCUGAN::process_se_stage0(const ncnn::Mat& inimage, const std::vector<std
 
             if (xtiles > 1)
             {
-                cmd.submit_and_wait();
+                require_ncnn(cmd.submit_and_wait());
                 cmd.reset();
             }
         }
@@ -1524,20 +1529,20 @@ int RealCUGAN::process_se_stage0(const ncnn::Mat& inimage, const std::vector<std
                     ex.set_workspace_vkallocator(opt.blob_vkallocator);
                     ex.set_staging_vkallocator(opt.staging_vkallocator);
 
-                    ex.input("in0", in_tile_gpu[ti]);
+                    require_ncnn(ex.input("in0", in_tile_gpu[ti]));
 
                     for (size_t i = 0; i < names.size(); i++)
                     {
                         ncnn::VkMat feat;
                         cache.load(yi, xi, ti, names[i], feat);
 
-                        ex.input(names[i].c_str(), feat);
+                        require_ncnn(ex.input(names[i].c_str(), feat));
                     }
 
                     for (size_t i = 0; i < outnames.size(); i++)
                     {
                         ncnn::VkMat feat;
-                        ex.extract(outnames[i].c_str(), feat, cmd);
+                        require_ncnn(ex.extract(outnames[i].c_str(), feat, cmd));
 
                         cache.save(yi, xi, ti, outnames[i], feat);
                     }
@@ -1598,20 +1603,20 @@ int RealCUGAN::process_se_stage0(const ncnn::Mat& inimage, const std::vector<std
                     ex.set_workspace_vkallocator(opt.blob_vkallocator);
                     ex.set_staging_vkallocator(opt.staging_vkallocator);
 
-                    ex.input("in0", in_tile_gpu);
+                    require_ncnn(ex.input("in0", in_tile_gpu));
 
                     for (size_t i = 0; i < names.size(); i++)
                     {
                         ncnn::VkMat feat;
                         cache.load(yi, xi, 0, names[i], feat);
 
-                        ex.input(names[i].c_str(), feat);
+                        require_ncnn(ex.input(names[i].c_str(), feat));
                     }
 
                     for (size_t i = 0; i < outnames.size(); i++)
                     {
                         ncnn::VkMat feat;
-                        ex.extract(outnames[i].c_str(), feat, cmd);
+                        require_ncnn(ex.extract(outnames[i].c_str(), feat, cmd));
 
                         cache.save(yi, xi, 0, outnames[i], feat);
                     }
@@ -1620,13 +1625,15 @@ int RealCUGAN::process_se_stage0(const ncnn::Mat& inimage, const std::vector<std
 
             if (xtiles > 1)
             {
-                cmd.submit_and_wait();
+                require_ncnn(cmd.submit_and_wait());
                 cmd.reset();
+                progress.advance();
             }
         }
 
-        cmd.submit_and_wait();
+        require_ncnn(cmd.submit_and_wait());
         cmd.reset();
+        if (xtiles == 1) progress.advance();
     }
 
     return 0;
@@ -1700,7 +1707,7 @@ int RealCUGAN::process_se_stage2(const ncnn::Mat& inimage, const std::vector<std
 
             if (xtiles > 1)
             {
-                cmd.submit_and_wait();
+                require_ncnn(cmd.submit_and_wait());
                 cmd.reset();
             }
         }
@@ -1803,17 +1810,17 @@ int RealCUGAN::process_se_stage2(const ncnn::Mat& inimage, const std::vector<std
                     ex.set_workspace_vkallocator(opt.blob_vkallocator);
                     ex.set_staging_vkallocator(opt.staging_vkallocator);
 
-                    ex.input("in0", in_tile_gpu[ti]);
+                    require_ncnn(ex.input("in0", in_tile_gpu[ti]));
 
                     for (size_t i = 0; i < names.size(); i++)
                     {
                         ncnn::VkMat feat;
                         cache.load(yi, xi, ti, names[i], feat);
 
-                        ex.input(names[i].c_str(), feat);
+                        require_ncnn(ex.input(names[i].c_str(), feat));
                     }
 
-                    ex.extract("out0", out_tile_gpu[ti], cmd);
+                    require_ncnn(ex.extract("out0", out_tile_gpu[ti], cmd));
                 }
 
                 ncnn::VkMat out_alpha_tile_gpu;
@@ -1969,17 +1976,17 @@ int RealCUGAN::process_se_stage2(const ncnn::Mat& inimage, const std::vector<std
                     ex.set_workspace_vkallocator(opt.blob_vkallocator);
                     ex.set_staging_vkallocator(opt.staging_vkallocator);
 
-                    ex.input("in0", in_tile_gpu);
+                    require_ncnn(ex.input("in0", in_tile_gpu));
 
                     for (size_t i = 0; i < names.size(); i++)
                     {
                         ncnn::VkMat feat;
                         cache.load(yi, xi, 0, names[i], feat);
 
-                        ex.input(names[i].c_str(), feat);
+                        require_ncnn(ex.input(names[i].c_str(), feat));
                     }
 
-                    ex.extract("out0", out_tile_gpu, cmd);
+                    require_ncnn(ex.extract("out0", out_tile_gpu, cmd));
                 }
 
                 ncnn::VkMat out_alpha_tile_gpu;
@@ -2068,8 +2075,9 @@ int RealCUGAN::process_se_stage2(const ncnn::Mat& inimage, const std::vector<std
 
             if (xtiles > 1)
             {
-                cmd.submit_and_wait();
+                require_ncnn(cmd.submit_and_wait());
                 cmd.reset();
+                progress.advance();
             }
         }
 
@@ -2084,7 +2092,7 @@ int RealCUGAN::process_se_stage2(const ncnn::Mat& inimage, const std::vector<std
 
             cmd.record_clone(out_gpu, out, opt);
 
-            cmd.submit_and_wait();
+            require_ncnn(cmd.submit_and_wait());
 
             if (!(opt.use_fp16_storage && opt.use_int8_storage))
             {
@@ -2106,6 +2114,7 @@ int RealCUGAN::process_se_stage2(const ncnn::Mat& inimage, const std::vector<std
                 }
             }
         }
+        if (xtiles == 1) progress.advance();
     }
 
     return 0;
@@ -2171,7 +2180,7 @@ int RealCUGAN::process_se_sync_gap(const ncnn::Mat& inimage, const std::vector<s
         }
     }
 
-    cmd.submit_and_wait();
+    require_ncnn(cmd.submit_and_wait());
     cmd.reset();
 
     // global average
@@ -2223,7 +2232,7 @@ int RealCUGAN::process_se_sync_gap(const ncnn::Mat& inimage, const std::vector<s
         }
     }
 
-    cmd.submit_and_wait();
+    require_ncnn(cmd.submit_and_wait());
     cmd.reset();
 
 
@@ -2321,7 +2330,7 @@ int RealCUGAN::process_se_very_rough_stage0(const ncnn::Mat& inimage, const std:
 
             if (xtiles > 1)
             {
-                cmd.submit_and_wait();
+                require_ncnn(cmd.submit_and_wait());
                 cmd.reset();
             }
         }
@@ -2424,20 +2433,20 @@ int RealCUGAN::process_se_very_rough_stage0(const ncnn::Mat& inimage, const std:
                     ex.set_workspace_vkallocator(opt.blob_vkallocator);
                     ex.set_staging_vkallocator(opt.staging_vkallocator);
 
-                    ex.input("in0", in_tile_gpu[ti]);
+                    require_ncnn(ex.input("in0", in_tile_gpu[ti]));
 
                     for (size_t i = 0; i < names.size(); i++)
                     {
                         ncnn::VkMat feat;
                         cache.load(yi, xi, ti, names[i], feat);
 
-                        ex.input(names[i].c_str(), feat);
+                        require_ncnn(ex.input(names[i].c_str(), feat));
                     }
 
                     for (size_t i = 0; i < outnames.size(); i++)
                     {
                         ncnn::VkMat feat;
-                        ex.extract(outnames[i].c_str(), feat, cmd);
+                        require_ncnn(ex.extract(outnames[i].c_str(), feat, cmd));
 
                         cache.save(yi, xi, ti, outnames[i], feat);
                     }
@@ -2498,20 +2507,20 @@ int RealCUGAN::process_se_very_rough_stage0(const ncnn::Mat& inimage, const std:
                     ex.set_workspace_vkallocator(opt.blob_vkallocator);
                     ex.set_staging_vkallocator(opt.staging_vkallocator);
 
-                    ex.input("in0", in_tile_gpu);
+                    require_ncnn(ex.input("in0", in_tile_gpu));
 
                     for (size_t i = 0; i < names.size(); i++)
                     {
                         ncnn::VkMat feat;
                         cache.load(yi, xi, 0, names[i], feat);
 
-                        ex.input(names[i].c_str(), feat);
+                        require_ncnn(ex.input(names[i].c_str(), feat));
                     }
 
                     for (size_t i = 0; i < outnames.size(); i++)
                     {
                         ncnn::VkMat feat;
-                        ex.extract(outnames[i].c_str(), feat, cmd);
+                        require_ncnn(ex.extract(outnames[i].c_str(), feat, cmd));
 
                         cache.save(yi, xi, 0, outnames[i], feat);
                     }
@@ -2520,12 +2529,12 @@ int RealCUGAN::process_se_very_rough_stage0(const ncnn::Mat& inimage, const std:
 
             if (xtiles > 1)
             {
-                cmd.submit_and_wait();
+                require_ncnn(cmd.submit_and_wait());
                 cmd.reset();
             }
         }
 
-        cmd.submit_and_wait();
+        require_ncnn(cmd.submit_and_wait());
         cmd.reset();
     }
 
@@ -2592,7 +2601,7 @@ int RealCUGAN::process_se_very_rough_sync_gap(const ncnn::Mat& inimage, const st
         }
     }
 
-    cmd.submit_and_wait();
+    require_ncnn(cmd.submit_and_wait());
     cmd.reset();
 
     // global average
@@ -2644,7 +2653,7 @@ int RealCUGAN::process_se_very_rough_sync_gap(const ncnn::Mat& inimage, const st
         }
     }
 
-    cmd.submit_and_wait();
+    require_ncnn(cmd.submit_and_wait());
     cmd.reset();
 
 
@@ -2857,20 +2866,20 @@ int RealCUGAN::process_cpu_se_stage0(const ncnn::Mat& inimage, const std::vector
                 {
                     ncnn::Extractor ex = net.create_extractor();
 
-                    ex.input("in0", in_tile[ti]);
+                    require_ncnn(ex.input("in0", in_tile[ti]));
 
                     for (size_t i = 0; i < names.size(); i++)
                     {
                         ncnn::Mat feat;
                         cache.load(yi, xi, ti, names[i], feat);
 
-                        ex.input(names[i].c_str(), feat);
+                        require_ncnn(ex.input(names[i].c_str(), feat));
                     }
 
                     for (size_t i = 0; i < outnames.size(); i++)
                     {
                         ncnn::Mat feat;
-                        ex.extract(outnames[i].c_str(), feat);
+                        require_ncnn(ex.extract(outnames[i].c_str(), feat));
 
                         cache.save(yi, xi, ti, outnames[i], feat);
                     }
@@ -2915,25 +2924,26 @@ int RealCUGAN::process_cpu_se_stage0(const ncnn::Mat& inimage, const std::vector
                 {
                     ncnn::Extractor ex = net.create_extractor();
 
-                    ex.input("in0", in_tile);
+                    require_ncnn(ex.input("in0", in_tile));
 
                     for (size_t i = 0; i < names.size(); i++)
                     {
                         ncnn::Mat feat;
                         cache.load(yi, xi, 0, names[i], feat);
 
-                        ex.input(names[i].c_str(), feat);
+                        require_ncnn(ex.input(names[i].c_str(), feat));
                     }
 
                     for (size_t i = 0; i < outnames.size(); i++)
                     {
                         ncnn::Mat feat;
-                        ex.extract(outnames[i].c_str(), feat);
+                        require_ncnn(ex.extract(outnames[i].c_str(), feat));
 
                         cache.save(yi, xi, 0, outnames[i], feat);
                     }
                 }
             }
+            progress.advance();
         }
     }
 
@@ -3107,17 +3117,17 @@ int RealCUGAN::process_cpu_se_stage2(const ncnn::Mat& inimage, const std::vector
                 {
                     ncnn::Extractor ex = net.create_extractor();
 
-                    ex.input("in0", in_tile[ti]);
+                    require_ncnn(ex.input("in0", in_tile[ti]));
 
                     for (size_t i = 0; i < names.size(); i++)
                     {
                         ncnn::Mat feat;
                         cache.load(yi, xi, ti, names[i], feat);
 
-                        ex.input(names[i].c_str(), feat);
+                        require_ncnn(ex.input(names[i].c_str(), feat));
                     }
 
-                    ex.extract("out0", out_tile[ti]);
+                    require_ncnn(ex.extract("out0", out_tile[ti]));
                 }
 
                 ncnn::Mat out_alpha_tile;
@@ -3263,17 +3273,17 @@ int RealCUGAN::process_cpu_se_stage2(const ncnn::Mat& inimage, const std::vector
                 {
                     ncnn::Extractor ex = net.create_extractor();
 
-                    ex.input("in0", in_tile);
+                    require_ncnn(ex.input("in0", in_tile));
 
                     for (size_t i = 0; i < names.size(); i++)
                     {
                         ncnn::Mat feat;
                         cache.load(yi, xi, 0, names[i], feat);
 
-                        ex.input(names[i].c_str(), feat);
+                        require_ncnn(ex.input(names[i].c_str(), feat));
                     }
 
-                    ex.extract("out0", out_tile);
+                    require_ncnn(ex.extract("out0", out_tile));
                 }
 
                 ncnn::Mat out_alpha_tile;
@@ -3361,6 +3371,7 @@ int RealCUGAN::process_cpu_se_stage2(const ncnn::Mat& inimage, const std::vector
 #endif
                 }
             }
+            progress.advance();
         }
     }
 
@@ -3639,20 +3650,20 @@ int RealCUGAN::process_cpu_se_very_rough_stage0(const ncnn::Mat& inimage, const 
                 {
                     ncnn::Extractor ex = net.create_extractor();
 
-                    ex.input("in0", in_tile[ti]);
+                    require_ncnn(ex.input("in0", in_tile[ti]));
 
                     for (size_t i = 0; i < names.size(); i++)
                     {
                         ncnn::Mat feat;
                         cache.load(yi, xi, ti, names[i], feat);
 
-                        ex.input(names[i].c_str(), feat);
+                        require_ncnn(ex.input(names[i].c_str(), feat));
                     }
 
                     for (size_t i = 0; i < outnames.size(); i++)
                     {
                         ncnn::Mat feat;
-                        ex.extract(outnames[i].c_str(), feat);
+                        require_ncnn(ex.extract(outnames[i].c_str(), feat));
 
                         cache.save(yi, xi, ti, outnames[i], feat);
                     }
@@ -3697,20 +3708,20 @@ int RealCUGAN::process_cpu_se_very_rough_stage0(const ncnn::Mat& inimage, const 
                 {
                     ncnn::Extractor ex = net.create_extractor();
 
-                    ex.input("in0", in_tile);
+                    require_ncnn(ex.input("in0", in_tile));
 
                     for (size_t i = 0; i < names.size(); i++)
                     {
                         ncnn::Mat feat;
                         cache.load(yi, xi, 0, names[i], feat);
 
-                        ex.input(names[i].c_str(), feat);
+                        require_ncnn(ex.input(names[i].c_str(), feat));
                     }
 
                     for (size_t i = 0; i < outnames.size(); i++)
                     {
                         ncnn::Mat feat;
-                        ex.extract(outnames[i].c_str(), feat);
+                        require_ncnn(ex.extract(outnames[i].c_str(), feat));
 
                         cache.save(yi, xi, 0, outnames[i], feat);
                     }

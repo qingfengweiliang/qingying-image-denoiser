@@ -2,6 +2,7 @@ name: Android APK
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     paths:
       - 'android/**'
       - '.github/workflows/android.yml'
@@ -11,15 +12,69 @@ on:
       - '.github/workflows/android.yml'
 permissions:
   contents: read
+  actions: read
+concurrency:
+  group: android-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  host-tests:
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: python -m pip install numpy==1.23.5 scipy==1.10.1 Pillow==11.0.0 opencv-python-headless==4.8.1.78
+      - run: python android/tests/test_progress.py
+      - run: python android/tests/test_processing.py
+  native-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Tencent/ncnn
+          ref: 20250503
+          path: ncnn-source
+          submodules: recursive
+      - run: sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update && sudo apt-get install -y libvulkan-dev mesa-vulkan-drivers
+      - uses: actions/cache/restore@v4
+        id: ncnn-cache
+        with:
+          path: ncnn-install
+          key: ubuntu24-ncnn-20250503-vulkan-v1
+      - name: Build pinned ncnn with Vulkan
+        if: steps.ncnn-cache.outputs.cache-hit != 'true'
+        run: |
+          cmake -S ncnn-source -B ncnn-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PWD/ncnn-install" -DNCNN_VULKAN=ON -DNCNN_BUILD_TOOLS=OFF -DNCNN_BUILD_EXAMPLES=OFF -DNCNN_BUILD_BENCHMARK=OFF
+          cmake --build ncnn-build -j 2
+          cmake --install ncnn-build
+      - uses: actions/cache/save@v4
+        if: steps.ncnn-cache.outputs.cache-hit != 'true'
+        with:
+          path: ncnn-install
+          key: ubuntu24-ncnn-20250503-vulkan-v1
+      - name: CPU and software Vulkan model/progress regression
+        run: |
+          cmake -S android/tests/native -B native-tests -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$PWD/ncnn-install"
+          cmake --build native-tests -j 2
+          ./native-tests/smoke
+          ./native-tests/smoke --gpu
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
@@ -31,12 +86,60 @@ jobs:
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
       - name: Fetch verified ncnn
         run: python android/scripts/prepare_ncnn.py
+      - name: Check official Python wheel repository
+        id: wheel-repository
+        run: |
+          if curl --fail --silent --show-error --connect-timeout 10 --max-time 15 https://chaquo.com/pypi-13.1/numpy/ >/dev/null; then
+            echo 'offline=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'offline=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/download-artifact@v4
+        if: steps.wheel-repository.outputs.offline == 'true'
+        with:
+          name: Qingying-Android-debug
+          run-id: 39840866700
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: reference-runtime
+      - name: Restore pinned offline Python dependencies
+        if: steps.wheel-repository.outputs.offline == 'true'
+        run: |
+          python android/scripts/restore_runtime_wheels.py reference-runtime/app-debug.apk
+          echo "ORG_GRADLE_PROJECT_qingyingRuntimeWheels=$PWD/android/vendor/runtime-wheels" >> "$GITHUB_ENV"
       - name: Build and lint
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
+          ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
       - uses: actions/upload-artifact@v4
         with:
           name: Qingying-Android-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Android-lint-and-test-apk
+          path: |
+            android/app/build/reports/lint-results-debug.html
+            android/app/build/outputs/apk/androidTest/debug/*.apk
+      - name: Enable KVM
+        run: sudo chmod 666 /dev/kvm
+      - name: Android end-to-end tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          disable-animations: true
+          working-directory: android
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          script: |
+            ./gradlew --no-daemon :app:connectedDebugAndroidTest
+            mkdir -p build/device-screenshots
+            adb pull /sdcard/Android/data/cn.qingying.denoiser.preview/files/qa build/device-screenshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Android-device-test-results
+          path: |
+            android/app/build/reports/androidTests/connected/
+            android/build/device-screenshots/

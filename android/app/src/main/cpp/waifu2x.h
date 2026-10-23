@@ -4,6 +4,7 @@
 #define WAIFU2X_H
 
 #include <string>
+#include "processing_support.h"
 
 // ncnn
 #include "net.h"
@@ -27,6 +28,8 @@ public:
     int process_cpu(const ncnn::Mat& inimage, ncnn::Mat& outimage) const;
 
 public:
+    ProcessingProgress progress;
+
     // waifu2x parameters
     int noise;
     int scale;

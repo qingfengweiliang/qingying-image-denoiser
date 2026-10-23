@@ -30,7 +30,7 @@ Waifu2x::~Waifu2x()
         delete waifu2x_postproc;
     }
 
-    bicubic_2x->destroy_pipeline(net.opt);
+    if (bicubic_2x) bicubic_2x->destroy_pipeline(net.opt);
     delete bicubic_2x;
 }
 
@@ -53,27 +53,27 @@ int Waifu2x::load(const std::string& parampath, const std::string& modelpath)
         FILE* fp = _wfopen(parampath.c_str(), L"rb");
         if (!fp)
         {
-            fwprintf(stderr, L"_wfopen %ls failed\n", parampath.c_str());
+            throw std::runtime_error("无法读取模型参数");
         }
 
-        net.load_param(fp);
-
+        int code = net.load_param(fp);
         fclose(fp);
+        require_ncnn(code);
     }
     {
         FILE* fp = _wfopen(modelpath.c_str(), L"rb");
         if (!fp)
         {
-            fwprintf(stderr, L"_wfopen %ls failed\n", modelpath.c_str());
+            throw std::runtime_error("无法读取模型权重");
         }
 
-        net.load_model(fp);
-
+        int code = net.load_model(fp);
         fclose(fp);
+        require_ncnn(code);
     }
 #else
-    net.load_param(parampath.c_str());
-    net.load_model(modelpath.c_str());
+    require_ncnn(net.load_param(parampath.c_str()));
+    require_ncnn(net.load_model(modelpath.c_str()));
 #endif
 
     // initialize preprocess and postprocess pipeline
@@ -94,15 +94,15 @@ int Waifu2x::load(const std::string& parampath, const std::string& modelpath)
                 if (spirv.empty())
                 {
                     if (tta_mode)
-                        compile_spirv_module(waifu2x_preproc_tta_comp_data, sizeof(waifu2x_preproc_tta_comp_data), net.opt, spirv);
+                        require_ncnn(compile_spirv_module(waifu2x_preproc_tta_comp_data, net.opt, spirv));
                     else
-                        compile_spirv_module(waifu2x_preproc_comp_data, sizeof(waifu2x_preproc_comp_data), net.opt, spirv);
+                        require_ncnn(compile_spirv_module(waifu2x_preproc_comp_data, net.opt, spirv));
                 }
             }
 
             waifu2x_preproc = new ncnn::Pipeline(vkdev);
             waifu2x_preproc->set_optimal_local_size_xyz(8, 8, 3);
-            waifu2x_preproc->create(spirv.data(), spirv.size() * 4, specializations);
+            require_ncnn(waifu2x_preproc->create(spirv.data(), spirv.size() * 4, specializations));
         }
 
         {
@@ -113,15 +113,15 @@ int Waifu2x::load(const std::string& parampath, const std::string& modelpath)
                 if (spirv.empty())
                 {
                     if (tta_mode)
-                        compile_spirv_module(waifu2x_postproc_tta_comp_data, sizeof(waifu2x_postproc_tta_comp_data), net.opt, spirv);
+                        require_ncnn(compile_spirv_module(waifu2x_postproc_tta_comp_data, net.opt, spirv));
                     else
-                        compile_spirv_module(waifu2x_postproc_comp_data, sizeof(waifu2x_postproc_comp_data), net.opt, spirv);
+                        require_ncnn(compile_spirv_module(waifu2x_postproc_comp_data, net.opt, spirv));
                 }
             }
 
             waifu2x_postproc = new ncnn::Pipeline(vkdev);
             waifu2x_postproc->set_optimal_local_size_xyz(8, 8, 3);
-            waifu2x_postproc->create(spirv.data(), spirv.size() * 4, specializations);
+            require_ncnn(waifu2x_postproc->create(spirv.data(), spirv.size() * 4, specializations));
         }
     }
 
@@ -136,7 +136,7 @@ int Waifu2x::load(const std::string& parampath, const std::string& modelpath)
         pd.set(2, 2.f);
         bicubic_2x->load_param(pd);
 
-        bicubic_2x->create_pipeline(net.opt);
+        require_ncnn(bicubic_2x->create_pipeline(net.opt));
     }
 
     return 0;
@@ -144,6 +144,7 @@ int Waifu2x::load(const std::string& parampath, const std::string& modelpath)
 
 int Waifu2x::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 {
+    progress.begin(((inimage.w + tilesize - 1) / tilesize) * ((inimage.h + tilesize - 1) / tilesize));
     if (!vkdev)
     {
         // cpu only
@@ -164,8 +165,9 @@ int Waifu2x::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
     const int TILE_SIZE_X = tilesize;
     const int TILE_SIZE_Y = tilesize;
 
-    ncnn::VkAllocator* blob_vkallocator = vkdev->acquire_blob_allocator();
-    ncnn::VkAllocator* staging_vkallocator = vkdev->acquire_staging_allocator();
+    ScopedGpuAllocators allocators(vkdev);
+    ncnn::VkAllocator* blob_vkallocator = allocators.blob;
+    ncnn::VkAllocator* staging_vkallocator = allocators.staging;
 
     ncnn::Option opt = net.opt;
     opt.blob_vkallocator = blob_vkallocator;
@@ -230,7 +232,7 @@ int Waifu2x::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 
             if (xtiles > 1)
             {
-                cmd.submit_and_wait();
+                require_ncnn(cmd.submit_and_wait());
                 cmd.reset();
             }
         }
@@ -333,9 +335,9 @@ int Waifu2x::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
                     ex.set_workspace_vkallocator(blob_vkallocator);
                     ex.set_staging_vkallocator(staging_vkallocator);
 
-                    ex.input("Input1", in_tile_gpu[ti]);
+                    require_ncnn(ex.input("Input1", in_tile_gpu[ti]));
 
-                    ex.extract("Eltwise4", out_tile_gpu[ti], cmd);
+                    require_ncnn(ex.extract("Eltwise4", out_tile_gpu[ti], cmd));
                 }
 
                 ncnn::VkMat out_alpha_tile_gpu;
@@ -442,9 +444,9 @@ int Waifu2x::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
                     ex.set_workspace_vkallocator(blob_vkallocator);
                     ex.set_staging_vkallocator(staging_vkallocator);
 
-                    ex.input("Input1", in_tile_gpu);
+                    require_ncnn(ex.input("Input1", in_tile_gpu));
 
-                    ex.extract("Eltwise4", out_tile_gpu, cmd);
+                    require_ncnn(ex.extract("Eltwise4", out_tile_gpu, cmd));
                 }
 
                 ncnn::VkMat out_alpha_tile_gpu;
@@ -491,8 +493,9 @@ int Waifu2x::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 
             if (xtiles > 1)
             {
-                cmd.submit_and_wait();
+                require_ncnn(cmd.submit_and_wait());
                 cmd.reset();
+                progress.advance();
             }
         }
 
@@ -507,7 +510,7 @@ int Waifu2x::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 
             cmd.record_clone(out_gpu, out, opt);
 
-            cmd.submit_and_wait();
+            require_ncnn(cmd.submit_and_wait());
 
             if (!((opt.use_fp16_storage || opt.use_fp16_packed) && opt.use_int8_storage))
             {
@@ -529,10 +532,10 @@ int Waifu2x::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
                 }
             }
         }
+        if (xtiles == 1) progress.advance();
     }
 
-    vkdev->reclaim_blob_allocator(blob_vkallocator);
-    vkdev->reclaim_staging_allocator(staging_vkallocator);
+
 
     return 0;
 }
@@ -712,9 +715,9 @@ int Waifu2x::process_cpu(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
                 {
                     ncnn::Extractor ex = net.create_extractor();
 
-                    ex.input("Input1", in_tile[ti]);
+                    require_ncnn(ex.input("Input1", in_tile[ti]));
 
-                    ex.extract("Eltwise4", out_tile[ti]);
+                    require_ncnn(ex.extract("Eltwise4", out_tile[ti]));
                 }
 
                 ncnn::Mat out_alpha_tile;
@@ -813,9 +816,9 @@ int Waifu2x::process_cpu(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
                 {
                     ncnn::Extractor ex = net.create_extractor();
 
-                    ex.input("Input1", in_tile);
+                    require_ncnn(ex.input("Input1", in_tile));
 
-                    ex.extract("Eltwise4", out_tile);
+                    require_ncnn(ex.extract("Eltwise4", out_tile));
                 }
 
                 ncnn::Mat out_alpha_tile;
@@ -874,6 +877,7 @@ int Waifu2x::process_cpu(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 #endif
                 }
             }
+            progress.advance();
         }
     }
 

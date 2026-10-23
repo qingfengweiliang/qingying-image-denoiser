@@ -43,10 +43,16 @@ def prepare(source, target):
             raise ValueError('图片超过 1600 万像素，请先缩小图片。')
         ImageOps.exif_transpose(image).convert('RGBA').save(target)
 
-def process(source, target, mode, strength):
+def process(source, target, mode, strength, progress=None):
+    def report(stage):
+        if progress is not None:
+            progress.onPythonStage(stage)
+
+    report('步骤 1/4 · 读取像素（CPU）')
     with Image.open(source) as image:
         rgba = image.convert('RGBA')
     rgb = np.array(rgba.convert('RGB'))
+    report('步骤 2/4 · 执行降噪（CPU）')
     if mode == 2:
         out = clean(rgb, 2., 3.) if strength < 3 else clean(rgb, 5., 5.5)
         if strength == 1:
@@ -60,8 +66,10 @@ def process(source, target, mode, strength):
         else:
             out = cv2.medianBlur(bgr, 3 if strength < 10 else 5 if strength < 20 else 7)
         out = cv2.cvtColor(out, cv2.COLOR_BGR2RGB)
+    report('步骤 3/4 · 合成颜色与透明度（CPU）')
     result = Image.fromarray(out)
     result.putalpha(rgba.getchannel('A'))
+    report('步骤 4/4 · 编码并保存结果（CPU）')
     result.save(target)
 
 def export(source, target, fmt):
