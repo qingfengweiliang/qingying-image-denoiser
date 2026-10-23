@@ -48,6 +48,10 @@ def restore(apk_path, output):
                     versions[metadata['Name'].lower().replace('_', '-')] = metadata['Version']
             if any(versions.get(name) != version for name, version in VERSIONS.items()):
                 raise ValueError('Reference dependency versions do not match the build pins')
+            # Wheel archives allow one root dist-info. Use the standard wheel
+            # data scheme to retain all original metadata in the installed target.
+            files = {f'qingying_runtime-1.0.0.data/purelib/{name}': content
+                     for name, content in files.items()}
             tag = f'cp310-cp310-android_24_{abi.replace("-", "_")}'
             info = 'qingying_runtime-1.0.0.dist-info'
             files[f'{info}/METADATA'] = (
