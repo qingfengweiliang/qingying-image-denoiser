@@ -18,6 +18,25 @@ VERSIONS = {'numpy': '1.23.3', 'scipy': '1.8.1', 'pillow': '11.0.0', 'opencv-pyt
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def write_wheel(output, name, version, tag, info, files, pure=False):
+    files = dict(files)
+    files[f'{info}/WHEEL'] = (
+        f'Wheel-Version: 1.0\nGenerator: qingying-offline-runtime\n'
+        f'Root-Is-Purelib: {str(pure).lower()}\nTag: {tag}\n').encode()
+    record = io.StringIO(newline='')
+    writer = csv.writer(record)
+    for path, content in sorted(files.items()):
+        digest = base64.urlsafe_b64encode(hashlib.sha256(content).digest()).decode().rstrip('=')
+        writer.writerow([path, 'sha256=' + digest, len(content)])
+    writer.writerow([f'{info}/RECORD', '', ''])
+    files[f'{info}/RECORD'] = record.getvalue().encode()
+    destination = output / f'{name.replace("-", "_")}-{version}-{tag}.whl'
+    with zipfile.ZipFile(destination, 'w', zipfile.ZIP_DEFLATED) as wheel:
+        for path, content in sorted(files.items()):
+            wheel.writestr(path, content)
+    print(f'Restored verified offline dependency: {destination.name}')
+
+
 def restore(apk_path, output):
     data = Path(apk_path).read_bytes()
     if hashlib.sha256(data).hexdigest() != APK_SHA256:
@@ -28,6 +47,8 @@ def restore(apk_path, output):
         raise ValueError('Dependency pins changed: obtain fresh official wheels rather than restoring old ones')
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
+    for abi in ['arm64_v8a', 'x86_64']:
+        (output / f'qingying_runtime-1.0.0-cp310-cp310-android_24_{abi}.whl').unlink(missing_ok=True)
     with zipfile.ZipFile(io.BytesIO(data)) as apk:
         common = apk.read('assets/chaquopy/requirements-common.imy')
         for abi in ['arm64-v8a', 'x86_64']:
@@ -41,36 +62,42 @@ def restore(apk_path, output):
                         if path.is_absolute() or '..' in path.parts or '\\' in item.filename:
                             raise ValueError('Unsafe dependency archive path')
                         files[item.filename] = archive.read(item)
-            versions = {}
+            versions, infos = {}, {}
             for name, content in files.items():
                 if name.endswith('.dist-info/METADATA'):
                     metadata = BytesParser().parsebytes(content)
-                    versions[metadata['Name'].lower().replace('_', '-')] = metadata['Version']
+                    package = metadata['Name'].lower().replace('_', '-')
+                    versions[package] = metadata['Version']
+                    infos[package] = name.split('/')[0]
             if any(versions.get(name) != version for name, version in VERSIONS.items()):
                 raise ValueError('Reference dependency versions do not match the build pins')
-            # Wheel archives allow one root dist-info. Use the standard wheel
-            # data scheme to retain all original metadata in the installed target.
-            files = {f'qingying_runtime-1.0.0.data/purelib/{name}': content
-                     for name, content in files.items()}
+            # Reconstruct each distribution separately so Chaquopy can track ABI
+            # ownership with standard WHEEL and RECORD metadata for every package.
+            modules = {'numpy': 'numpy', 'scipy': 'scipy', 'PIL': 'pillow', 'cv2': 'opencv-python'}
+            libraries = {
+                'libc++_shared.so': 'chaquopy-libcxx', 'libfreetype.so': 'chaquopy-freetype',
+                'libgfortran.so.3': 'chaquopy-libgfortran', 'libjpeg_chaquopy.so': 'chaquopy-libjpeg',
+                'libopenblas.so': 'chaquopy-openblas', 'libpng16.so': 'chaquopy-libpng',
+            }
+            metadata_owners = {info: package for package, info in infos.items()}
+            packages = {package: {} for package in infos}
+            for path, content in files.items():
+                top = path.split('/')[0]
+                package = metadata_owners.get(top) or modules.get(top)
+                if package is None and path.startswith('chaquopy/lib/'):
+                    package = libraries.get(path.rsplit('/', 1)[-1])
+                if package not in packages:
+                    raise ValueError(f'Unrecognized dependency file ownership: {path}')
+                packages[package][path] = content
             tag = f'cp310-cp310-android_24_{abi.replace("-", "_")}'
-            info = 'qingying_runtime-1.0.0.dist-info'
-            files[f'{info}/METADATA'] = (
-                'Metadata-Version: 2.1\nName: qingying-runtime\nVersion: 1.0.0\n'
-                'Summary: Verified Qingying 1.0.0 Android dependencies for offline builds\n').encode()
-            files[f'{info}/WHEEL'] = (
-                f'Wheel-Version: 1.0\nGenerator: qingying-offline-runtime\nRoot-Is-Purelib: false\nTag: {tag}\n').encode()
-            record = io.StringIO(newline='')
-            writer = csv.writer(record)
-            for name, content in sorted(files.items()):
-                digest = base64.urlsafe_b64encode(hashlib.sha256(content).digest()).decode().rstrip('=')
-                writer.writerow([name, 'sha256=' + digest, len(content)])
-            writer.writerow([f'{info}/RECORD', '', ''])
-            files[f'{info}/RECORD'] = record.getvalue().encode()
-            destination = output / f'qingying_runtime-1.0.0-{tag}.whl'
-            with zipfile.ZipFile(destination, 'w', zipfile.ZIP_DEFLATED) as wheel:
-                for name, content in sorted(files.items()):
-                    wheel.writestr(name, content)
-            print(f'Restored verified offline dependencies: {destination.name}')
+            for package, package_files in packages.items():
+                write_wheel(output, package, versions[package], tag, infos[package], package_files)
+    info = 'qingying_runtime-1.0.0.dist-info'
+    metadata = ('Metadata-Version: 2.1\nName: qingying-runtime\nVersion: 1.0.0\n'
+                'Summary: Verified Qingying Android dependencies for offline builds\n'
+                + ''.join(f'Requires-Dist: {name}=={version}\n' for name, version in VERSIONS.items()))
+    write_wheel(output, 'qingying-runtime', '1.0.0', 'py3-none-any', info,
+                {f'{info}/METADATA': metadata.encode()}, pure=True)
 
 
 if __name__ == '__main__':
