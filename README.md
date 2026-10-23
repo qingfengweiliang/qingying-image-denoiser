@@ -1,38 +1,43 @@
 # 清影 · 图片降噪
 
-在本机清理图片噪点、保留边缘与细节。提供 **Windows** 和 **Android** 两个版本，中文界面、六种算法、原图与结果对比，处理过程不上传图片。
-
-**Android 1.0.0** · **Windows 2.5**
+在本机清理图片噪点、保留边缘与细节。提供 Android 手机端和 Windows 桌面端，中文界面、六种算法、原图与结果对比，处理过程不上传图片。
 
 ## 下载
 
-| 平台 | 系统要求 | 下载 |
-| --- | --- | --- |
-| Android | Android 7.0+，64 位 ARM 手机 | [下载 APK](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/android-v1.0.0/Qingying-Android-1.0.0.apk) · [版本说明](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/tag/android-v1.0.0) |
-| Windows | Windows x64 | [下载 ZIP](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/V2.5.0/Qingying-2.5-Windows-x64.zip) · [版本说明](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/tag/V2.5.0) |
+按设备选择对应安装包。两个平台属于同一项目，安装格式和版本号分别维护；下载入口统一如下。
 
-安卓下载 APK 后安装，按系统提示允许当前浏览器或文件管理器“安装未知应用”。不支持 32 位安卓设备。
+| 平台 | 已发布版本 | 运行要求 | 安装包与说明 |
+| --- | --- | --- | --- |
+| Android | 1.0.0 · CPU 推理 | Android 7.0+，64 位 ARM 手机 | [下载 APK](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/android-v1.0.0/Qingying-Android-1.0.0.apk) · [版本说明](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/tag/android-v1.0.0) |
+| Windows | 2.5 | Windows x64；两种 AI 算法需要 Vulkan 显卡及驱动 | [下载 ZIP](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/V2.5.0/Qingying-2.5-Windows-x64.zip) · [版本说明](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/tag/V2.5.0) |
 
-Windows 下载后**完整解压**，运行 `清影图片降噪.exe`，保留同目录的 `_internal` 文件夹；打包版不需要另装 Python。
+安卓安装包可使用 [SHA-256 校验文件](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/android-v1.0.0/SHA256SUMS.txt) 核对完整性。更多说明见 [文档导航](docs/README.md)。
 
-## 安卓版
+## Android 使用
 
-<img src="docs/android-preview.png" alt="清影安卓界面：测试图的分割对比" width="320">
+<img src="docs/android-preview.png" alt="清影 Android 1.0.0：原图与结果分割对比" width="320">
 
-安卓界面，使用测试图展示分割对比。
+1. 下载 APK 并安装；按系统提示允许当前浏览器或文件管理器“安装未知应用”。不支持 32 位安卓设备。
+2. 打开图片，选择算法、强度和倍率，点击“开始降噪”。处理时保持应用打开。
+3. 使用“原图 / 结果 / 分割对比”查看效果，双指缩放、拖动画面或分割线，双击复位。
+4. 点击“保存结果”，选择 PNG、JPEG 或 WebP，再选择系统文件位置。
 
-1. 打开图片，选择算法、强度和输出倍率。
-2. 点击“开始降噪”，处理时保持应用打开。
-3. 切换“原图 / 结果 / 分割对比”；双指缩放、拖动画面或分割线，双击复位。
-4. 点击“保存结果”，导出 PNG、JPEG 或 WebP 到系统文件选择器指定的位置。
+**当前已发布的 Android 1.0.0 使用 CPU，尚不支持 GPU 加速。** 六种算法均在手机本地运行，模型随安装包提供。单张图片最高 4× 放大，不含批量处理、中途取消或可量化的处理百分比；大图可能处理较久。输入上限 1600 万像素，实际处理上限还受算法、倍率和设备内存限制。
 
-六种算法均在手机本地运行。两种 AI 引擎使用 CPU，不要求手机支持 Vulkan；大图及放大处理可能较慢。首版面向**单张图片，最高 4× 放大**，不含批量处理和任务取消。输入上限 1600 万像素，处理上限还会按算法和设备内存收紧。
+已完成的模拟器、模型和构建检查详见 [1.0.0 验证记录](docs/android-validation.md)；尚未进行 ARM64 实体手机测试，不同品牌设备、16 KB 内存页及实际速度仍需验证。
 
-[安卓源码与构建说明](android/README.md) · [Android 1.0.0 更新说明](docs/releases/android-v1.0.0.md) · [构建与验证记录](docs/android-validation.md) · [发布维护说明](docs/Android-Release-Handoff.md)
+[完整安卓说明与源码构建](android/README.md) · [1.0.0 更新内容](docs/releases/android-v1.0.0.md)
 
-已通过模拟器端到端测试、核心模型回归、Release 构建、Lint 与签名检查；**尚未进行 ARM64 实体手机测试**，不同机型的性能与内存兼容性仍需反馈。
+## Windows 使用
+
+![清影 Windows 界面](docs/preview.png)
+
+完整解压 ZIP，运行 `清影图片降噪.exe`，保留同目录的 `_internal` 文件夹；打包版不需要另装 Python。打开图片或拖入预览区，选择算法、强度和倍率后开始处理。
+
+支持批量处理、原图 / 结果 / 分割对比、滚轮缩放、拖动平移、“100%”像素查看，以及 PNG / JPG / WebP 保存。Waifu2x 和 Real-CUGAN 需要支持 Vulkan 的显卡及驱动，其余算法使用 CPU。
 
 ## 算法与平台差异
+
 
 | 算法 | 适用场景 | Android | Windows |
 | --- | --- | --- | --- |
@@ -47,15 +52,8 @@ Real-CUGAN 的 1× 会先以 2× 重建再缩回；3×、4× 模型仅提供高�
 
 降噪可能损失纹理或改变细节，不能恢复已丢失的信息。图片按常规 8 位 RGB/RGBA 处理，不支持相机 RAW；导出不保留原始 EXIF、GPS、ICC 等元数据。JPEG 将透明区域合成为白色背景。
 
-## Windows 界面与使用
-
-![清影 Windows 界面](docs/preview.png)
-
-打开图片或拖入预览区，选择算法、强度和倍率后开始处理。可切换原图、结果与分割对比，滚轮缩放、拖动平移，“100%”检查实际像素，“适应”回到全图。顶部提供批量处理；保存支持 PNG、JPG、WebP。
-
-Windows 的 Waifu2x 和 Real-CUGAN 需要支持 Vulkan 的显卡及驱动，其他算法使用 CPU。
-
 ## 从源码构建
+
 
 ### Android
 
@@ -89,7 +87,20 @@ python -m venv .venv
 
 输出位于 `dist/清影图片降噪/`。对外分享时一并附上 `licenses/` 和 `docs/使用说明.txt`，完整压缩该目录。
 
+## 仓库导航
+
+| 路径 | 内容 |
+| --- | --- |
+| `android/` | 安卓应用、内置模型、构建说明和测试 |
+| `app.py`、`glass_ui.py`、`engine.py` | Windows 启动入口、界面和处理逻辑 |
+| `docs/` | 使用说明、截图、版本变更和验证记录 |
+| `native/`、`third_party/`、`licenses/` | 引擎资料、第三方算法、来源和许可证 |
+| `scripts/`、`.github/workflows/` | 本地辅助脚本与自动构建 |
+
+安装包从上方下载入口获取；更详细的说明统一从 [文档导航](docs/README.md) 查找。
+
 ## 第三方组件与许可
+
 
 使用 [waifu2x-ncnn-vulkan](https://github.com/nihui/waifu2x-ncnn-vulkan)、[realcugan-ncnn-vulkan](https://github.com/nihui/realcugan-ncnn-vulkan)、[AI Image Rehab](https://github.com/BlairKaiser/ai-image-rehab)、ncnn、OpenCV、NumPy、SciPy、Pillow；Windows 界面使用 PySide6/Qt，安卓使用原生界面与 Chaquopy。
 
