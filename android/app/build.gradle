@@ -40,7 +40,15 @@ android {
 chaquopy {
  defaultConfig {
   version '3.10'
-  pip { install 'numpy==1.23.3'; install 'Pillow==11.0.0'; install 'scipy==1.8.1'; install 'opencv-python==4.5.1.48' }
+  pip {
+   if (project.hasProperty('qingyingRuntimeWheels')) {
+    options '--no-index', '--find-links', project.property('qingyingRuntimeWheels').toString()
+    install 'qingying-runtime==1.0.0'
+   } else {
+    options '--only-binary=:all:'
+    install 'numpy==1.23.3'; install 'Pillow==11.0.0'; install 'scipy==1.8.1'; install 'opencv-python==4.5.1.48'
+   }
+  }
  }
 }
 

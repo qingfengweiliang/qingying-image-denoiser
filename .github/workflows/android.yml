@@ -11,6 +11,7 @@ on:
       - '.github/workflows/android.yml'
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: android-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
@@ -41,7 +42,7 @@ jobs:
           path: ncnn-source
           submodules: recursive
       - run: sudo apt-get update && sudo apt-get install -y libvulkan-dev mesa-vulkan-drivers
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         id: ncnn-cache
         with:
           path: ncnn-install
@@ -52,6 +53,11 @@ jobs:
           cmake -S ncnn-source -B ncnn-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PWD/ncnn-install" -DNCNN_VULKAN=ON -DNCNN_BUILD_TOOLS=OFF -DNCNN_BUILD_EXAMPLES=OFF -DNCNN_BUILD_BENCHMARK=OFF
           cmake --build ncnn-build -j 2
           cmake --install ncnn-build
+      - uses: actions/cache/save@v4
+        if: steps.ncnn-cache.outputs.cache-hit != 'true'
+        with:
+          path: ncnn-install
+          key: ubuntu24-ncnn-20250503-vulkan-v1
       - name: CPU and software Vulkan model/progress regression
         run: |
           cmake -S android/tests/native -B native-tests -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$PWD/ncnn-install"
@@ -79,6 +85,26 @@ jobs:
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
       - name: Fetch verified ncnn
         run: python android/scripts/prepare_ncnn.py
+      - name: Check official Python wheel repository
+        id: wheel-repository
+        run: |
+          if curl --fail --silent --show-error --connect-timeout 10 --max-time 15 https://chaquo.com/pypi-13.1/numpy/ >/dev/null; then
+            echo 'offline=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'offline=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/download-artifact@v4
+        if: steps.wheel-repository.outputs.offline == 'true'
+        with:
+          name: Qingying-Android-debug
+          run-id: 39840866700
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: reference-runtime
+      - name: Restore pinned offline Python dependencies
+        if: steps.wheel-repository.outputs.offline == 'true'
+        run: |
+          python android/scripts/restore_runtime_wheels.py reference-runtime/app-debug.apk
+          echo "ORG_GRADLE_PROJECT_qingyingRuntimeWheels=$PWD/android/vendor/runtime-wheels" >> "$GITHUB_ENV"
       - name: Build and lint
         working-directory: android
         run: |

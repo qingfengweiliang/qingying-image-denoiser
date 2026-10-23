@@ -51,6 +51,10 @@ Windows 使用 `gradlew.bat :app:assembleDebug`。脚本固定 ncnn 20250503 并
 
 Debug APK：`app/build/outputs/apk/debug/app-debug.apk`。Release：`./gradlew :app:assembleRelease`。默认 Release 未签名。手机单架构版本可执行 `./gradlew -PqingyingAbi=arm64-v8a :app:assembleRelease`。
 
+如果官方 Chaquopy Python 包站点不可达，可使用 `scripts/restore_runtime_wheels.py` 从仓库历史成功构建的 1.0.0 Debug APK 恢复完全相同的图像依赖。脚本固定校验 APK SHA-256、依赖版本与两个 ABI，保留原依赖许可证；不会复用旧界面、算法入口、JNI 引擎、模型或签名。恢复后使用 `./gradlew -PqingyingRuntimeWheels=/absolute/path/to/android/vendor/runtime-wheels :app:assembleDebug`。普通构建仍优先下载官方二进制轮子；不会尝试为安卓编译桌面源码包。
+
+工作流在官方站点连接失败时自动使用历史运行 `39840866700` 的 `Qingying-Android-debug` 制品作为依赖参考，并进行固定哈希校验。该历史制品的保留期到 2027-01-20；过期后应恢复官方站点访问或由维护者提供同一校验值的私有备份。修改 Python 依赖版本时必须获取新的官方轮子，不应继续复用旧参考。
+
 若要使用交付 APK 的同一签名更新安装，请妥善保留随交付提供的**独立签名备份**；不要上传到公开仓库。将密钥复制到私有位置，在 `android/signing.properties` 填写：
 
 ```properties
