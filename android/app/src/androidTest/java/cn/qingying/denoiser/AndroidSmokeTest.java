@@ -83,6 +83,7 @@ public class AndroidSmokeTest {
       assertTrue(Color.red(out.getPixel(16, 16)) > 20);
       out.recycle();
     }
+    inst.runOnMainSync(activity::finish);
   }
 
   @Test
@@ -121,6 +122,77 @@ public class AndroidSmokeTest {
     } finally {
       source.recycle();
       inst.runOnMainSync(activity::finish);
+    }
+  }
+
+  @Test
+  public void uiShowsTwoPassProgressAndCompletion() throws Exception {
+    Instrumentation inst = InstrumentationRegistry.getInstrumentation();
+    MainActivity activity = (MainActivity) inst.startActivitySync(
+        inst.getTargetContext().getPackageManager().getLaunchIntentForPackage("cn.qingying.denoiser"));
+    awaitIdle(inst, activity);
+    Bitmap fixture = Bitmap.createBitmap(129, 65, Bitmap.Config.ARGB_8888);
+    fixture.eraseColor(Color.argb(160, 96, 144, 192));
+    File input = new File(activity.getCacheDir(), "ui-progress-input.png");
+    try (OutputStream stream = new FileOutputStream(input)) {
+      fixture.compress(Bitmap.CompressFormat.PNG, 100, stream);
+    }
+    fixture.recycle();
+    inst.runOnMainSync(() -> activity.onActivityResult(
+        1, Activity.RESULT_OK, new Intent().setData(Uri.fromFile(input))));
+    awaitIdle(inst, activity);
+    inst.runOnMainSync(() -> activity.algorithm.setSelection(0));
+    inst.waitForIdleSync();
+    inst.runOnMainSync(() -> {
+      activity.backend.setSelection(1);
+      activity.scale.setSelection(2); // Waifu2x 4x, two passes.
+    });
+    inst.waitForIdleSync();
+    inst.runOnMainSync(activity::process);
+    final boolean[] running = {true};
+    long deadline = System.currentTimeMillis() + 180000;
+    boolean captured = false;
+    while (System.currentTimeMillis() < deadline) {
+      final boolean[] visibleProgress = {false};
+      inst.runOnMainSync(() -> {
+        running[0] = activity.busy;
+        if (activity.processingProgress != null) {
+          ProcessingProgress.Snapshot s = activity.processingProgress.snapshot(android.os.SystemClock.elapsedRealtime());
+          assertTrue(s.completed >= 0 && s.completed <= s.total);
+          visibleProgress[0] = s.measurable && s.completed > 0 && s.completed < s.total;
+        }
+      });
+      if (visibleProgress[0] && !captured) {
+        screenshot(inst, activity, "progress.png");
+        captured = true;
+      }
+      if (!running[0]) break;
+      Thread.sleep(100);
+    }
+    assertFalse("UI processing timed out", running[0]);
+    assertNotNull(activity.result);
+    assertEquals(516, activity.result.getWidth());
+    assertEquals(260, activity.result.getHeight());
+    assertEquals(160, Color.alpha(activity.result.getPixel(100, 100)), 2);
+    inst.runOnMainSync(() -> {
+      assertTrue(activity.status.getText().toString().contains("处理完成"));
+      assertTrue(activity.status.getText().toString().contains("MP/秒"));
+      assertTrue(activity.backend.isEnabled());
+      assertTrue(activity.save.isEnabled());
+    });
+    screenshot(inst, activity, "completed.png");
+    inst.runOnMainSync(activity::finish);
+  }
+
+  void screenshot(Instrumentation inst, MainActivity activity, String name) throws IOException {
+    Bitmap screen = inst.getUiAutomation().takeScreenshot();
+    if (screen == null) return;
+    File directory = new File(activity.getExternalFilesDir(null), "qa");
+    directory.mkdirs();
+    try (OutputStream stream = new FileOutputStream(new File(directory, name))) {
+      screen.compress(Bitmap.CompressFormat.PNG, 100, stream);
+    } finally {
+      screen.recycle();
     }
   }
 

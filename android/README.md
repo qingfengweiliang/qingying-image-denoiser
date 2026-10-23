@@ -2,13 +2,13 @@
 
 已发布版本：**1.0.0（CPU）**。当前源码：**1.1.0-preview（Vulkan GPU / CPU）**。下载旧 APK 不会获得新源码功能；预览包通过 Android APK 工作流生成，尚未作为正式版本发布。
 
-清影的安卓原生界面移植。适用于 **Android 7.0 及以上、64 位 ARM 手机**；默认源码构建另含 x86_64 供模拟器使用；本次手机交付 APK 仅含 arm64-v8a 以缩小体积。六种算法均本地运行，模型随 APK 内置，不需要联网，不申请全盘文件访问权限。
+清影的安卓原生界面移植。适用于 **Android 7.0 及以上、64 位 ARM 手机**；默认源码及工作流构建包含 arm64-v8a 和模拟器使用的 x86_64；已发布的 1.0.0 手机 APK 仅含 arm64-v8a。六种算法均本地运行，模型随 APK 内置，不需要联网，不申请全盘文件访问权限。
 
 ## 使用
 
 安装 `Qingying-Android-1.0.0.apk`，首次安装可能需要允许浏览器或文件管理器“安装未知应用”。打开图片，选择算法、强度、倍率后开始降噪。当前源码增加“自动 · 优先 GPU”和“CPU · 兼容模式”，会记住你的选择；设备检测结果显示在算法下方。使用“原图 / 结果 / 分割对比”检查结果；双指缩放，拖动画面或中间分割线，双击复位。保存时可选择 PNG、JPEG、WebP 和系统文件位置。点击标题旁的 ⓘ 查看说明和第三方许可证。
 
-| 算法 | 安卓首版倍率 | 说明 |
+| 算法 | 安卓倍率 | 当前源码说明 |
 | --- | --- | --- |
 | Waifu2x CUNet | 1 / 2 / 4× | Vulkan / CPU 分块推理；4× 连续两次 2× |
 | Real-CUGAN | 1 / 2 / 3 / 4× | Vulkan / CPU；1× 先 2× 重建后缩回；3 / 4× 固定高强度 |
@@ -66,7 +66,7 @@ keyPassword=你的备份密码
 
 `python tests/test_progress.py` 使用 JDK 验证百分比、速度、剩余时间、GPU 重试和 4× 轮次计算。`./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug` 构建应用、仪器测试和安卓静态检查。启动 x86_64 或 arm64 安卓设备后，`./gradlew :app:connectedDebugAndroidTest` 运行导入、六种算法、透明度、AI 放大与三种导出格式测试。
 
-`python tests/test_processing.py` 在有 NumPy / SciPy / Pillow / OpenCV 的主机上验证四种 Python 算法与导出。`tests/native/` 包含供桌面 ncnn 库运行的 C++ 核心与逐块进度回归测试；运行 `smoke` 验证 CPU，运行 `smoke --gpu` 验证 Vulkan（无 GPU 时会失败，避免把未执行当作通过）。GitHub 工作流通过 Mesa 软件 Vulkan 执行 GPU 路径，它不能代替手机 GPU 性能验证。这些测试，可启用 AddressSanitizer 检查极小图片及分块边界；它不能替代安卓真机测试。
+`python tests/test_processing.py` 在有 NumPy / SciPy / Pillow / OpenCV 的主机上验证四种 Python 算法与导出。`tests/native/` 包含供桌面 ncnn 库运行的 C++ 核心与逐块进度回归测试；运行 `smoke` 验证 CPU，运行 `smoke --gpu` 验证 Vulkan（无 GPU 时会失败，避免把未执行当作通过）。GitHub 工作流通过 Mesa 软件 Vulkan 执行 GPU 路径，并在安卓模拟器运行仪器测试；这些结果不能替代手机 GPU 性能与兼容性验证。原生回归也可使用带 AddressSanitizer 的工具链检查极小图片和分块边界。
 
 第三方许可证位于 `app/src/main/assets/licenses/` 和各 Python 包元数据中。模型、源码来源和移植修补说明见 `licenses/NOTICE.txt`。原项目 Windows 代码保持原状。正式版本通过项目 GitHub Releases 分发，主分支保留可复现构建的源码和工作流。
 

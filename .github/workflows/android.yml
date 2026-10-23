@@ -11,6 +11,9 @@ on:
       - '.github/workflows/android.yml'
 permissions:
   contents: read
+concurrency:
+  group: android-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   host-tests:
     runs-on: ubuntu-24.04
@@ -38,7 +41,13 @@ jobs:
           path: ncnn-source
           submodules: recursive
       - run: sudo apt-get update && sudo apt-get install -y libvulkan-dev mesa-vulkan-drivers
+      - uses: actions/cache@v4
+        id: ncnn-cache
+        with:
+          path: ncnn-install
+          key: ubuntu24-ncnn-20250503-vulkan-v1
       - name: Build pinned ncnn with Vulkan
+        if: steps.ncnn-cache.outputs.cache-hit != 'true'
         run: |
           cmake -S ncnn-source -B ncnn-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PWD/ncnn-install" -DNCNN_VULKAN=ON -DNCNN_BUILD_TOOLS=OFF -DNCNN_BUILD_EXAMPLES=OFF -DNCNN_BUILD_BENCHMARK=OFF
           cmake --build ncnn-build -j 2
@@ -58,6 +67,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
@@ -85,3 +95,24 @@ jobs:
           path: |
             android/app/build/reports/lint-results-debug.html
             android/app/build/outputs/apk/androidTest/debug/*.apk
+      - name: Enable KVM
+        run: sudo chmod 666 /dev/kvm
+      - name: Android end-to-end tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          disable-animations: true
+          working-directory: android
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          script: |
+            ./gradlew --no-daemon :app:connectedDebugAndroidTest
+            mkdir -p build/device-screenshots
+            adb pull /sdcard/Android/data/cn.qingying.denoiser/files/qa build/device-screenshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Android-device-test-results
+          path: |
+            android/app/build/reports/androidTests/connected/
+            android/build/device-screenshots/

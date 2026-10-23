@@ -149,9 +149,9 @@ int RealCUGAN::load(const std::string& parampath, const std::string& modelpath)
                 if (spirv.empty())
                 {
                     if (tta_mode)
-                        require_ncnn(compile_spirv_module(realcugan_preproc_tta_comp_data, sizeof(realcugan_preproc_tta_comp_data), net.opt, spirv));
+                        require_ncnn(compile_spirv_module(realcugan_preproc_tta_comp_data, net.opt, spirv));
                     else
-                        require_ncnn(compile_spirv_module(realcugan_preproc_comp_data, sizeof(realcugan_preproc_comp_data), net.opt, spirv));
+                        require_ncnn(compile_spirv_module(realcugan_preproc_comp_data, net.opt, spirv));
                 }
             }
 
@@ -168,9 +168,9 @@ int RealCUGAN::load(const std::string& parampath, const std::string& modelpath)
                 if (spirv.empty())
                 {
                     if (tta_mode)
-                        require_ncnn(compile_spirv_module(realcugan_postproc_tta_comp_data, sizeof(realcugan_postproc_tta_comp_data), net.opt, spirv));
+                        require_ncnn(compile_spirv_module(realcugan_postproc_tta_comp_data, net.opt, spirv));
                     else
-                        require_ncnn(compile_spirv_module(realcugan_postproc_comp_data, sizeof(realcugan_postproc_comp_data), net.opt, spirv));
+                        require_ncnn(compile_spirv_module(realcugan_postproc_comp_data, net.opt, spirv));
                 }
             }
 
@@ -187,9 +187,9 @@ int RealCUGAN::load(const std::string& parampath, const std::string& modelpath)
                 if (spirv.empty())
                 {
                     if (tta_mode)
-                        require_ncnn(compile_spirv_module(realcugan_4x_postproc_tta_comp_data, sizeof(realcugan_4x_postproc_tta_comp_data), net.opt, spirv));
+                        require_ncnn(compile_spirv_module(realcugan_4x_postproc_tta_comp_data, net.opt, spirv));
                     else
-                        require_ncnn(compile_spirv_module(realcugan_4x_postproc_comp_data, sizeof(realcugan_4x_postproc_comp_data), net.opt, spirv));
+                        require_ncnn(compile_spirv_module(realcugan_4x_postproc_comp_data, net.opt, spirv));
                 }
             }
 
