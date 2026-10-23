@@ -77,10 +77,50 @@ public class AndroidSmokeTest {
     for (int engine = 0; engine < 2; engine++) {
       int factor = engine == 0 ? 2 : 3;
       Bitmap out = Bitmap.createBitmap(33 * factor, 35 * factor, Bitmap.Config.ARGB_8888);
-      activity.nativeProcess(fixture, out, activity.getFilesDir().getPath(), engine, 3, factor);
+      activity.nativeProcess(fixture, out, activity.getFilesDir().getPath(), engine, 3, factor,
+          1, null);
       assertEquals(128, Color.alpha(out.getPixel(16, 16)), 2);
       assertTrue(Color.red(out.getPixel(16, 16)) > 20);
       out.recycle();
+    }
+  }
+
+  @Test
+  public void cpuAndAutoReportCompletedTiles() throws Exception {
+    Instrumentation inst = InstrumentationRegistry.getInstrumentation();
+    MainActivity activity = (MainActivity) inst.startActivitySync(
+        inst.getTargetContext().getPackageManager().getLaunchIntentForPackage("cn.qingying.denoiser"));
+    awaitIdle(inst, activity);
+    Bitmap source = Bitmap.createBitmap(129, 3, Bitmap.Config.ARGB_8888);
+    source.eraseColor(Color.argb(128, 96, 144, 192));
+    try {
+      for (int engine = 0; engine < 2; engine++) {
+        for (int backend = 0; backend < 2; backend++) {
+          int factor = engine == 0 ? 1 : 2;
+          Bitmap output = Bitmap.createBitmap(129 * factor, 3 * factor, Bitmap.Config.ARGB_8888);
+          final int[] last = {0, 0};
+          final boolean[] inference = {false};
+          String device = activity.nativeProcess(source, output, activity.getFilesDir().getPath(),
+              engine, 2, factor, backend, (done, count, name) -> {
+                if (count == 0) { last[0] = 0; return; } // Includes GPU retry.
+                assertTrue(done >= last[0]);
+                assertTrue(done <= count);
+                last[0] = done;
+                last[1] = count;
+                inference[0] = true;
+              });
+          assertTrue(inference[0]);
+          assertEquals(engine == 0 ? 2 : 10, last[1]);
+          assertEquals(last[1], last[0]);
+          assertTrue(device.startsWith(backend == 1 ? "CPU" : "GPU") || device.startsWith("CPU"));
+          assertEquals(128, Color.alpha(output.getPixel(0, 0)), 2);
+          assertTrue(Color.red(output.getPixel(0, 0)) > 20);
+          output.recycle();
+        }
+      }
+    } finally {
+      source.recycle();
+      inst.runOnMainSync(activity::finish);
     }
   }
 

@@ -4,6 +4,7 @@
 #define REALCUGAN_H
 
 #include <string>
+#include "processing_support.h"
 
 // ncnn
 #include "net.h"
@@ -55,6 +56,8 @@ protected:
     int process_cpu_se_very_rough_sync_gap(const ncnn::Mat& inimage, const std::vector<std::string>& names, FeatureCache& cache) const;
 
 public:
+    ProcessingProgress progress;
+
     // realcugan parameters
     int noise;
     int scale;

@@ -1,8 +1,10 @@
 # 清影 · 图片降噪
 
-在本机清理图片噪点、保留边缘与细节。提供 **Windows** 和 **Android** 两个版本，中文界面、六种算法、原图与结果对比，处理过程不上传图片。
+在本机清理图片噪点、保留边缘与细节。同一项目提供 **Windows 桌面端** 和 **Android 手机端**，中文界面、六种算法、原图与结果对比，处理过程不上传图片。
 
-**Android 1.0.0** · **Windows 2.5**
+**已发布安装包：Android 1.0.0（CPU） · Windows 2.5**
+
+当前安卓源码为 **1.1.0-preview**：新增 Vulkan GPU 自动加速、CPU 回退和可量化 AI 进度。下方已发布的 1.0.0 APK **不包含这些新功能**；预览构建与验证方式见 [安卓说明](android/README.md)。
 
 ## 下载
 
@@ -11,7 +13,7 @@
 | Android | Android 7.0+，64 位 ARM 手机 | [下载 APK](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/android-v1.0.0/Qingying-Android-1.0.0.apk) · [版本说明](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/tag/android-v1.0.0) |
 | Windows | Windows x64 | [下载 ZIP](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/V2.5.0/Qingying-2.5-Windows-x64.zip) · [版本说明](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/tag/V2.5.0) |
 
-安卓下载 APK 后安装，按系统提示允许当前浏览器或文件管理器“安装未知应用”。不支持 32 位安卓设备。
+两个平台使用不同的安装格式和独立版本号，统一在本页选择下载。安卓下载 APK 后安装，按系统提示允许当前浏览器或文件管理器“安装未知应用”。不支持 32 位安卓设备。
 
 Windows 下载后**完整解压**，运行 `清影图片降噪.exe`，保留同目录的 `_internal` 文件夹；打包版不需要另装 Python。
 
@@ -19,29 +21,33 @@ Windows 下载后**完整解压**，运行 `清影图片降噪.exe`，保留同�
 
 <img src="docs/android-preview.png" alt="清影安卓界面：测试图的分割对比" width="320">
 
-安卓界面，使用测试图展示分割对比。
+Android 1.0.0 界面参考，使用测试图展示分割对比；新源码另外提供处理设备选择和进度详情。
 
-1. 打开图片，选择算法、强度和输出倍率。
-2. 点击“开始降噪”，处理时保持应用打开。
+1. 打开图片，选择算法、强度和输出倍率。新版可选择“自动 · 优先 GPU”或“CPU · 兼容模式”。
+2. 点击“开始降噪”，处理时保持应用打开。新版 AI 推理显示实际百分比、已完成图块步骤、处理设备、耗时、速度和预计剩余时间。
 3. 切换“原图 / 结果 / 分割对比”；双指缩放、拖动画面或分割线，双击复位。
 4. 点击“保存结果”，导出 PNG、JPEG 或 WebP 到系统文件选择器指定的位置。
 
-六种算法均在手机本地运行。两种 AI 引擎使用 CPU，不要求手机支持 Vulkan；大图及放大处理可能较慢。首版面向**单张图片，最高 4× 放大**，不含批量处理和任务取消。输入上限 1600 万像素，处理上限还会按算法和设备内存收紧。
+六种算法均在手机本地运行。当前源码中的 Waifu2x / Real-CUGAN 优先使用 Vulkan GPU；无可用 GPU 或遇到可恢复的模型加载、命令提交错误时回退 CPU，也可手动选择 CPU。其余四种算法使用 CPU。已发布的 1.0.0 APK 仅使用 CPU。安卓面向**单张图片，最高 4× 放大**，不含批量处理和任务取消。输入上限 1600 万像素，处理上限还会按算法和设备内存收紧。
 
-[安卓源码与构建说明](android/README.md) · [Android 1.0.0 更新说明](docs/releases/android-v1.0.0.md) · [构建与验证记录](docs/android-validation.md) · [发布维护说明](docs/Android-Release-Handoff.md)
+[安卓源码与构建说明](android/README.md) · [GPU 与进度预览说明](docs/releases/android-v1.1.0-preview.md) · [Android 1.0.0 更新说明](docs/releases/android-v1.0.0.md) · [构建与验证记录](docs/android-validation.md) · [发布维护说明](docs/Android-Release-Handoff.md)
 
-已通过模拟器端到端测试、核心模型回归、Release 构建、Lint 与签名检查；**尚未进行 ARM64 实体手机测试**，不同机型的性能与内存兼容性仍需反馈。
+Android 1.0.0 的历史验证已覆盖模拟器端到端测试、核心模型回归、Release 构建、Lint 与签名检查；新 GPU 版本的验证单独记录于 [验证记录](docs/android-gpu-validation.md)。**尚未进行 ARM64 实体手机测试**，不同机型的性能与内存兼容性仍需反馈。
 
 ## 算法与平台差异
 
 | 算法 | 适用场景 | Android | Windows |
 | --- | --- | --- | --- |
-| Waifu2x CUNet | 插画、生成图颗粒清理 | 1 / 2 / 4×，CPU | 1 / 2 / 4 / 8 / 16 / 32×，Vulkan |
-| Real-CUGAN | 线条与纹理重建 | 1 / 2 / 3 / 4×，CPU | 1 / 2 / 3 / 4×，Vulkan |
+| Waifu2x CUNet | 插画、生成图颗粒清理 | 1 / 2 / 4×，Vulkan / CPU¹ | 1 / 2 / 4 / 8 / 16 / 32×，Vulkan |
+| Real-CUGAN | 线条与纹理重建 | 1 / 2 / 3 / 4×，Vulkan / CPU¹ | 1 / 2 / 3 / 4×，Vulkan |
 | AI Image Rehab | 生成图杂纹清理 | 1× | 1× |
 | 非局部均值 | 普通照片噪点 | 1× | 1× |
 | 双边滤波 | 轻度噪点、快速处理 | 1× | 1× |
 | 中值滤波 | 黑白颗粒、椒盐噪声 | 1× | 1× |
+
+¹ 安卓 GPU 指当前 1.1.0-preview 源码；已发布 1.0.0 APK 为 CPU 版本。GPU 速度和稳定性取决于驱动、模型与图片尺寸，暂未完成 ARM64 真机验证。
+
+AI 进度按实际完成的图块步骤统计，包含 Real-CUGAN 的多轮计算和 Waifu2x 4× 的两轮放大；预计剩余时间是动态估算。其他算法只显示实际阶段和耗时，不虚构内部百分比。完成后显示总用时和按输入像素计算的平均 MP/秒。
 
 Real-CUGAN 的 1× 会先以 2× 重建再缩回；3×、4× 模型仅提供高强度。Windows 预计输出超过 6000 万像素会被阻止；安卓采用更适合手机内存的限制。
 
@@ -67,7 +73,7 @@ python scripts/prepare_ncnn.py
 ./gradlew :app:assembleDebug
 ```
 
-Windows 使用 `gradlew.bat`。GitHub [Android APK 工作流](https://github.com/qingfengweiliang/qingying-image-denoiser/actions/workflows/android.yml) 可自动构建测试包。正式更新必须使用同一签名密钥，并增加 `versionCode`；私密密钥及密码不要上传仓库。
+Windows 使用 `gradlew.bat`。GitHub [Android APK 工作流](https://github.com/qingfengweiliang/qingying-image-denoiser/actions/workflows/android.yml) 可自动构建 APK，并执行进度、图像、原生 CPU / 软件 Vulkan 回归及 Lint 检查。测试包不是商店正式版本。正式更新必须使用同一签名密钥，并增加 `versionCode`；私密密钥及密码不要上传仓库。
 
 ### Windows
 
@@ -88,6 +94,18 @@ python -m venv .venv
 ```
 
 输出位于 `dist/清影图片降噪/`。对外分享时一并附上 `licenses/` 和 `docs/使用说明.txt`，完整压缩该目录。
+
+## 仓库结构
+
+| 目录或文件 | 用途 |
+| --- | --- |
+| `android/` | 安卓界面、CPU / Vulkan 推理、模型与测试 |
+| `app.py`、`glass_ui.py`、`engine.py` | Windows 界面与处理入口 |
+| `native/`、`third_party/`、`licenses/` | 桌面引擎资料、第三方算法与许可 |
+| `docs/` | 使用说明、截图、版本变更与验证记录 |
+| `.github/workflows/` | 安卓自动构建与检查 |
+
+安装包在 Releases 分发；构建缓存、SDK、签名密钥和临时文件不应提交到仓库。
 
 ## 第三方组件与许可
 

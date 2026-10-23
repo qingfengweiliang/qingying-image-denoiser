@@ -12,8 +12,46 @@ on:
 permissions:
   contents: read
 jobs:
+  host-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: python -m pip install numpy==1.23.5 scipy==1.10.1 Pillow==11.0.0 opencv-python-headless==4.8.1.78
+      - run: python android/tests/test_progress.py
+      - run: python android/tests/test_processing.py
+  native-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Tencent/ncnn
+          ref: 20250503
+          path: ncnn-source
+          submodules: recursive
+      - run: sudo apt-get update && sudo apt-get install -y libvulkan-dev mesa-vulkan-drivers
+      - name: Build pinned ncnn with Vulkan
+        run: |
+          cmake -S ncnn-source -B ncnn-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PWD/ncnn-install" -DNCNN_VULKAN=ON -DNCNN_BUILD_TOOLS=OFF -DNCNN_BUILD_EXAMPLES=OFF -DNCNN_BUILD_BENCHMARK=OFF
+          cmake --build ncnn-build -j 2
+          cmake --install ncnn-build
+      - name: CPU and software Vulkan model/progress regression
+        run: |
+          cmake -S android/tests/native -B native-tests -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$PWD/ncnn-install"
+          cmake --build native-tests -j 2
+          ./native-tests/smoke
+          ./native-tests/smoke --gpu
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -35,8 +73,15 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
+          ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
       - uses: actions/upload-artifact@v4
         with:
           name: Qingying-Android-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Android-lint-and-test-apk
+          path: |
+            android/app/build/reports/lint-results-debug.html
+            android/app/build/outputs/apk/androidTest/debug/*.apk
