@@ -1,7 +1,0 @@
-.gradle/
-local.properties
-**/build/
-**/.cxx/
-signing.properties
-*.jks
-vendor/

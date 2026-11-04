@@ -1,32 +1,16 @@
 # 清影 · 图片降噪
 
-在本机清理图片噪点、保留边缘与细节。提供 Android 手机端和 Windows 桌面端，中文界面、六种算法、原图与结果对比，处理过程不上传图片。
+在本机清理图片噪点、保留边缘与细节。面向 Windows 桌面端，中文界面、六种算法、原图与结果对比，处理过程不上传图片。
 
 ## 下载
 
-按设备选择对应安装包。两个平台属于同一项目，安装格式和版本号分别维护；下载入口统一如下。
+下载 Windows 安装包，完整解压后即可使用。
 
 | 平台 | 已发布版本 | 运行要求 | 安装包与说明 |
 | --- | --- | --- | --- |
-| Android | 1.0.0 · CPU 推理 | Android 7.0+，64 位 ARM 手机 | [下载 APK](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/android-v1.0.0/Qingying-Android-1.0.0.apk) · [版本说明](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/tag/android-v1.0.0) |
 | Windows | 2.5 | Windows x64；两种 AI 算法需要 Vulkan 显卡及驱动 | [下载 ZIP](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/V2.5.0/Qingying-2.5-Windows-x64.zip) · [版本说明](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/tag/V2.5.0) |
 
-安卓安装包可使用 [SHA-256 校验文件](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/android-v1.0.0/SHA256SUMS.txt) 核对完整性。更多说明见 [文档导航](docs/README.md)。
-
-## Android 使用
-
-<img src="docs/android-preview.png" alt="清影 Android 1.0.0：原图与结果分割对比" width="320">
-
-1. 下载 APK 并安装；按系统提示允许当前浏览器或文件管理器“安装未知应用”。不支持 32 位安卓设备。
-2. 打开图片，选择算法、强度和倍率，点击“开始降噪”。处理时保持应用打开。
-3. 使用“原图 / 结果 / 分割对比”查看效果，双指缩放、拖动画面或分割线，双击复位。
-4. 点击“保存结果”，选择 PNG、JPEG 或 WebP，再选择系统文件位置。
-
-**当前已发布的 Android 1.0.0 使用 CPU，尚不支持 GPU 加速。** 六种算法均在手机本地运行，模型随安装包提供。单张图片最高 4× 放大，不含批量处理、中途取消或可量化的处理百分比；大图可能处理较久。输入上限 1600 万像素，实际处理上限还受算法、倍率和设备内存限制。
-
-已完成的模拟器、模型和构建检查详见 [1.0.0 验证记录](docs/android-validation.md)；尚未进行 ARM64 实体手机测试，不同品牌设备、16 KB 内存页及实际速度仍需验证。
-
-[完整安卓说明与源码构建](android/README.md) · [1.0.0 更新内容](docs/releases/android-v1.0.0.md)
+更多说明见 [文档导航](docs/README.md)。
 
 ## Windows 使用
 
@@ -36,38 +20,23 @@
 
 支持批量处理、原图 / 结果 / 分割对比、滚轮缩放、拖动平移、“100%”像素查看，以及 PNG / JPG / WebP 保存。Waifu2x 和 Real-CUGAN 需要支持 Vulkan 的显卡及驱动，其余算法使用 CPU。
 
-## 算法与平台差异
+## 算法
 
+| 算法 | 适用场景 | 倍率与运行方式 |
+| --- | --- | --- |
+| Waifu2x CUNet | 插画、生成图颗粒清理 | 1 / 2 / 4 / 8 / 16 / 32×，Vulkan |
+| Real-CUGAN | 线条与纹理重建 | 1 / 2 / 3 / 4×，Vulkan |
+| AI Image Rehab | 生成图杂纹清理 | 1×，CPU |
+| 非局部均值 | 普通照片噪点 | 1×，CPU |
+| 双边滤波 | 轻度噪点、快速处理 | 1×，CPU |
+| 中值滤波 | 黑白颗粒、椒盐噪声 | 1×，CPU |
 
-| 算法 | 适用场景 | Android | Windows |
-| --- | --- | --- | --- |
-| Waifu2x CUNet | 插画、生成图颗粒清理 | 1 / 2 / 4×，CPU | 1 / 2 / 4 / 8 / 16 / 32×，Vulkan |
-| Real-CUGAN | 线条与纹理重建 | 1 / 2 / 3 / 4×，CPU | 1 / 2 / 3 / 4×，Vulkan |
-| AI Image Rehab | 生成图杂纹清理 | 1× | 1× |
-| 非局部均值 | 普通照片噪点 | 1× | 1× |
-| 双边滤波 | 轻度噪点、快速处理 | 1× | 1× |
-| 中值滤波 | 黑白颗粒、椒盐噪声 | 1× | 1× |
-
-Real-CUGAN 的 1× 会先以 2× 重建再缩回；3×、4× 模型仅提供高强度。Windows 预计输出超过 6000 万像素会被阻止；安卓采用更适合手机内存的限制。
+Real-CUGAN 的 1× 会先以 2× 重建再缩回；3×、4× 模型仅提供高强度。预计输出超过 6000 万像素会被阻止。
 
 降噪可能损失纹理或改变细节，不能恢复已丢失的信息。图片按常规 8 位 RGB/RGBA 处理，不支持相机 RAW；导出不保留原始 EXIF、GPS、ICC 等元数据。JPEG 将透明区域合成为白色背景。
 
 ## 从源码构建
 
-
-### Android
-
-需要 JDK 17、Python 3.10、Android SDK 35、NDK 27.2.12479018 和 CMake 3.22.1。完整步骤见 [android/README.md](android/README.md)。
-
-```sh
-cd android
-python scripts/prepare_ncnn.py
-./gradlew :app:assembleDebug
-```
-
-Windows 使用 `gradlew.bat`。GitHub [Android APK 工作流](https://github.com/qingfengweiliang/qingying-image-denoiser/actions/workflows/android.yml) 可自动构建测试包。正式更新必须使用同一签名密钥，并增加 `versionCode`；私密密钥及密码不要上传仓库。
-
-### Windows
 
 Windows 版本在 Python 3.14 x64 上构建并测试。仓库保存界面与处理源码、许可和模型参数；原生 EXE、DLL 与 Windows 模型权重随 Release 提供。
 
@@ -91,19 +60,18 @@ python -m venv .venv
 
 | 路径 | 内容 |
 | --- | --- |
-| `android/` | 安卓应用、内置模型、构建说明和测试 |
 | `app.py`、`glass_ui.py`、`engine.py` | Windows 启动入口、界面和处理逻辑 |
-| `docs/` | 使用说明、截图、版本变更和验证记录 |
+| `docs/` | 使用说明、截图和文档导航 |
 | `native/`、`third_party/`、`licenses/` | 引擎资料、第三方算法、来源和许可证 |
-| `scripts/`、`.github/workflows/` | 本地辅助脚本与自动构建 |
+| `scripts/` | 本地辅助脚本 |
 
 安装包从上方下载入口获取；更详细的说明统一从 [文档导航](docs/README.md) 查找。
 
 ## 第三方组件与许可
 
 
-使用 [waifu2x-ncnn-vulkan](https://github.com/nihui/waifu2x-ncnn-vulkan)、[realcugan-ncnn-vulkan](https://github.com/nihui/realcugan-ncnn-vulkan)、[AI Image Rehab](https://github.com/BlairKaiser/ai-image-rehab)、ncnn、OpenCV、NumPy、SciPy、Pillow；Windows 界面使用 PySide6/Qt，安卓使用原生界面与 Chaquopy。
+使用 [waifu2x-ncnn-vulkan](https://github.com/nihui/waifu2x-ncnn-vulkan)、[realcugan-ncnn-vulkan](https://github.com/nihui/realcugan-ncnn-vulkan)、[AI Image Rehab](https://github.com/BlairKaiser/ai-image-rehab)、ncnn、OpenCV、NumPy、SciPy、Pillow；Windows 界面使用 PySide6/Qt。
 
-第三方引擎、代码和模型保留原作者许可与来源说明，见 `licenses/`、`native/`、`third_party/` 及 [安卓组件说明](android/app/src/main/assets/licenses/NOTICE.txt)。安卓应用内点击标题旁的 ⓘ 可查看许可。
+第三方引擎、代码和模型保留原作者许可与来源说明，见 `licenses/`、`native/`、`third_party/`。
 
 本仓库尚未为原创代码指定独立开源许可证；公开可见不等于授权任意再分发。详情见 [使用说明](docs/使用说明.txt)。
