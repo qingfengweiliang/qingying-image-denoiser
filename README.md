@@ -8,8 +8,8 @@
 
 | 平台 | 已发布版本 | 运行要求 | 安装包与说明 |
 | --- | --- | --- | --- |
-| Windows | 2.5（已发布） | Windows x64；神经网络重建需要 Vulkan 显卡及驱动 | [下载 ZIP](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/V2.5.0/Qingying-2.5-Windows-x64.zip) · [版本说明](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/tag/V2.5.0) |
-| Windows | 2.6（源码已更新，便携包待上传） | Windows x64；新增去鳞纹，L0 使用 CPU | [2.6 更新说明](docs/releases/V2.6.0.md) · [查看已发布版本](https://github.com/qingfengweiliang/qingying-image-denoiser/releases) |
+| Windows | 2.6（最新版） | Windows x64；神经网络重建需要 Vulkan 显卡及驱动，L0 使用 CPU | [下载 ZIP](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/V2.6.0/Qingying-2.6-Windows-x64.zip) · [版本说明](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/tag/V2.6.0) · [SHA256 校验](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/V2.6.0/SHA256SUMS.txt) |
+| Windows | 2.5（历史版本） | Windows x64；神经网络重建需要 Vulkan 显卡及驱动 | [下载 ZIP](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/download/V2.5.0/Qingying-2.5-Windows-x64.zip) · [版本说明](https://github.com/qingfengweiliang/qingying-image-denoiser/releases/tag/V2.5.0) |
 
 更多说明见 [文档导航](docs/README.md)。
 
