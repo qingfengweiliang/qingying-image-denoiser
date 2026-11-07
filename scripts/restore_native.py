@@ -12,7 +12,7 @@ count = 0
 with zipfile.ZipFile(args.release_zip) as archive:
     for member in archive.infolist():
         parts = PurePosixPath(member.filename).parts
-        if len(parts) < 4 or parts[:3] != ('Qingying-2.5', '_internal', 'native') or member.is_dir():
+        if len(parts) < 4 or parts[0] not in ('Qingying-2.5','Qingying-2.6') or parts[1:3] != ('_internal', 'native') or member.is_dir():
             continue
         destination = (root / 'native' / Path(*parts[3:])).resolve()
         if not destination.is_relative_to(root / 'native'):
@@ -22,5 +22,5 @@ with zipfile.ZipFile(args.release_zip) as archive:
             shutil.copyfileobj(source, target)
         count += 1
 if not count:
-    raise SystemExit('No bundled native files found; select the official Qingying 2.5 Windows ZIP.')
+    raise SystemExit('No bundled native files found; select the official Qingying 2.5 or 2.6 Windows ZIP.')
 print(f'Restored {count} native engine/model files.')

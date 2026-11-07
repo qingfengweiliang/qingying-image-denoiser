@@ -4,7 +4,7 @@ from pathlib import Path
 
 root = Path(SPECPATH)
 a = Analysis([str(root / 'app.py')], pathex=[str(root)], binaries=[],
-    datas=[(str(root / 'native'), 'native'), (str(root / 'assets'), 'assets')],
+    datas=[(str(root / 'native'), 'native'), (str(root / 'assets'), 'assets'), (str(root / 'licenses'), 'licenses')],
     hiddenimports=[], hookspath=[], hooksconfig={}, runtime_hooks=[],
     excludes=['tkinter', 'torch', 'onnxruntime', 'matplotlib', 'pytest', 'IPython', 'pandas',
               'scipy.tests', 'scipy.ndimage.tests', 'PySide6.QtQml', 'PySide6.QtQuick',

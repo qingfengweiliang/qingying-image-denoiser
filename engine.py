@@ -13,11 +13,17 @@ from PIL import Image, ImageOps
 NEURAL_MODE = '二次元降噪 · 推荐'
 CUGAN_MODE = 'Real-CUGAN · 线条重建'
 REHAB_MODE = 'AI Image Rehab · 杂纹清理'
-MODES = [NEURAL_MODE, '精细降噪 · 照片', '快速保边 · 轻噪点', '去除颗粒 · 椒盐噪声', CUGAN_MODE, REHAB_MODE]
+GPT_MODE = 'GPT 去鳞纹 · ESRGAN + L0'
+GPT_CUGAN_MODE = 'GPT 去鳞纹 · CUGAN + L0'
+L0_MODE = 'L0 平滑 · 纯算法'
+GPT_MODES = (GPT_MODE, GPT_CUGAN_MODE, L0_MODE)
+GPT_PRESETS = {1: (0.8, 0.0006), 2: (0.6, 0.001), 3: (0.45, 0.0018)}
+MODES = [NEURAL_MODE, '精细降噪 · 照片', '快速保边 · 轻噪点', '去除颗粒 · 椒盐噪声', CUGAN_MODE, REHAB_MODE, *GPT_MODES]
 SCALES = {NEURAL_MODE:(1,2,4,8,16,32), CUGAN_MODE:(1,2,3,4)}
 MAX_OUTPUT_PIXELS = 60_000_000
 _processes = set()
 _process_lock = threading.Lock()
+_cancel_event = threading.Event()
 
 
 def native_folder(engine='waifu2x'):
@@ -32,10 +38,12 @@ def supported_scales(mode):
 def strength_range(mode, scale=1):
     if mode == CUGAN_MODE and scale in (3,4):
         return (3,3)
-    return (1,3) if mode in (NEURAL_MODE,CUGAN_MODE,REHAB_MODE) else (1,30)
+    return (1,3) if mode in (NEURAL_MODE,CUGAN_MODE,REHAB_MODE,*GPT_MODES) else (1,30)
 
 
 def strength_label(mode, strength):
+    if mode in GPT_MODES:
+        return {1:'轻柔',2:'推荐',3:'强力'}.get(strength,str(strength))
     if mode == REHAB_MODE:
         return {1:'轻柔',2:'柔和上色',3:'平涂清理'}.get(strength,str(strength))
     return {1:'低',2:'中',3:'高'}.get(strength,str(strength)) if mode in (NEURAL_MODE,CUGAN_MODE) else str(strength)
@@ -49,9 +57,13 @@ def validate_settings(im, mode, strength, scale):
         raise ValueError('当前算法与倍率不支持所选强度。')
     if im.width*im.height*scale*scale>MAX_OUTPUT_PIXELS:
         raise ValueError('预计输出超过 6000 万像素，请降低倍率或缩小输入图片。')
+    # Float64 FFT needs substantial working memory. Do not tile L0: that changes its result.
+    if mode in GPT_MODES and im.width*im.height > 8_000_000:
+        raise ValueError('去鳞纹 / L0 模式支持最多 800 万像素，请先缩小图片，避免内存不足。')
 
 
 def cancel_processing():
+    _cancel_event.set()
     with _process_lock:
         processes = list(_processes)
     for process in processes:
@@ -144,6 +156,39 @@ def rehab_denoise(im,strength):
     if im.mode=='RGBA':result.putalpha(im.getchannel('A'))
     return result
 
+
+def gpt_denoise(im, mode, strength):
+    from third_party.gpt_l0 import smooth
+    down, lam = GPT_PRESETS[strength]
+    source = im.convert('RGB')
+    if mode != L0_MODE:
+        small = source.resize((max(1, round(im.width*down)), max(1, round(im.height*down))), Image.Resampling.BOX)
+        if mode == GPT_CUGAN_MODE:
+            rebuilt = cugan_denoise(small, 3, 2)
+        else:
+            folder = native_folder('realesrgan')
+            executable = folder / 'realesrgan-ncnn-vulkan.exe'
+            models = folder / 'models'
+            model = 'realesrgan-x4plus-anime'
+            if not executable.is_file() or any(not (models/f'{model}.{ext}').is_file() for ext in ('bin','param')):
+                raise FileNotFoundError('内置 Real-ESRGAN 动漫引擎或模型缺失，请保留完整程序目录。')
+            with tempfile.TemporaryDirectory(prefix='qingying-gpt-') as directory:
+                original, output = Path(directory)/'input.png', Path(directory)/'output.png'
+                small.save(original)
+                code, log = _run_native([str(executable), '-i', str(original), '-o', str(output),
+                    '-m', str(models), '-n', model, '-s', '4', '-t', '128', '-j', '1:1:1'])
+                if code or not output.is_file():
+                    raise RuntimeError('Real-ESRGAN 去鳞纹失败，需要支持 Vulkan 的显卡及驱动。\n'+log[-1600:])
+                with Image.open(output) as image:
+                    rebuilt = image.convert('RGB')
+                if rebuilt.size != (small.width*4, small.height*4):
+                    raise RuntimeError('Real-ESRGAN 返回的图片尺寸异常，已停止导出。')
+        source = rebuilt.resize(im.size, Image.Resampling.LANCZOS)
+    result = Image.fromarray(smooth(np.asarray(source), lam, stop=_cancel_event.is_set))
+    if im.mode == 'RGBA':
+        result.putalpha(im.getchannel('A'))
+    return result
+
 def load_image(path):
     with Image.open(path) as im:
         if im.width * im.height > 60_000_000:
@@ -153,6 +198,9 @@ def load_image(path):
 
 def denoise(im, mode, strength, scale=1):
     validate_settings(im,mode,strength,scale)
+    _cancel_event.clear()
+    if mode in GPT_MODES:
+        return gpt_denoise(im,mode,strength)
     if mode == NEURAL_MODE:
         return neural_denoise(im, strength,scale)
     if mode == CUGAN_MODE:

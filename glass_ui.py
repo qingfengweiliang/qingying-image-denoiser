@@ -13,7 +13,7 @@ from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap, QLinear
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QToolButton, QScrollArea, QSlider, QRadioButton, QButtonGroup,
     QFileDialog, QMessageBox, QProgressBar, QSizePolicy, QComboBox, QDialog, QFrame)
-from engine import MODES, NEURAL_MODE, load_image, denoise, save_image, writable_folder, default_output, cancel_processing, CUGAN_MODE, REHAB_MODE, supported_scales, strength_range, strength_label, validate_settings
+from engine import MODES, NEURAL_MODE, load_image, denoise, save_image, writable_folder, default_output, cancel_processing, CUGAN_MODE, REHAB_MODE, supported_scales, strength_range, strength_label, validate_settings, GPT_MODE, GPT_CUGAN_MODE, L0_MODE, GPT_MODES, GPT_PRESETS
 
 IMAGE_FILTER = '图片 (*.png *.jpg *.jpeg *.webp *.bmp *.tif *.tiff)'
 STYLE = '''
@@ -344,7 +344,7 @@ class Bridge(QObject):
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('清影图片降噪 2.5')
+        self.setWindowTitle('清影图片降噪 2.6')
         available=self.screen().availableGeometry()
         self.resize(min(1280,max(1000,int(available.width()*.94))),min(820,max(650,int(available.height()*.9))))
         self.setMinimumSize(1000,650)
@@ -415,7 +415,7 @@ class MainWindow(QWidget):
         algorithm_row.addStretch()
         help_button=QToolButton()
         help_button.setText('选择建议')
-        help_button.clicked.connect(lambda:QMessageBox.information(self,'选择降噪算法','插画与生成图：优先使用二次元降噪。\n线条重建：可试 Real-CUGAN。\n生成图杂纹：可试 AI Image Rehab。\n普通照片：使用精细降噪。\n轻度噪点：使用快速保边。\n黑白颗粒：使用去除颗粒。'))
+        help_button.clicked.connect(lambda:QMessageBox.information(self,'选择降噪算法','AI 二次元图鱼鳞纹：选 GPT 去鳞纹 · ESRGAN + L0，推荐档对应缩至 60% 后重建、L0 0.001。\n想清理得更平：可试 CUGAN + L0。\n只想平滑细纹：选 L0 平滑，无需显卡。\n这三种模式保持原尺寸，最多 800 万像素；L0 使用 CPU，大图会较慢，强力档可能抹掉淡阴影。\n插画颗粒：二次元降噪。\n线条重建：Real-CUGAN。\n生成图杂纹：AI Image Rehab。\n普通照片：精细降噪。\n轻度噪点：快速保边。\n黑白颗粒：去除颗粒。'))
         algorithm_row.addWidget(help_button)
         settings.addLayout(algorithm_row)
         self.mode_group=QButtonGroup(self)
@@ -427,7 +427,7 @@ class MainWindow(QWidget):
             radio.setChecked(i==0)
             self.radios.append(radio)
         self.mode_combo=QComboBox()
-        for i in [0,4,5,1,2,3]:self.mode_combo.addItem(MODES[i],i)
+        for i in [0,6,7,8,4,5,1,2,3]:self.mode_combo.addItem(MODES[i],i)
         self.controls.append(self.mode_combo)
         settings.addWidget(self.mode_combo)
         self.mode_description=label('',True)
@@ -534,7 +534,7 @@ class MainWindow(QWidget):
         self._result_scale=1
         self._over_limit=False
         self._scales={i:1 for i in range(len(MODES))}
-        self._strengths={(i,scale):(3 if i in (0,4) else 2 if i==5 else 10) for i,mode in enumerate(MODES) for scale in supported_scales(mode)}
+        self._strengths={(i,scale):(3 if i in (0,4) else 2 if mode in (REHAB_MODE,*GPT_MODES) else 10) for i,mode in enumerate(MODES) for scale in supported_scales(mode)}
         self.mode_group.idToggled.connect(lambda index,checked:self.mode_changed(index) if checked else None)
         self.mode_combo.currentIndexChanged.connect(self.select_mode)
         self.scale_slider.valueChanged.connect(self.scale_changed)
@@ -562,7 +562,7 @@ class MainWindow(QWidget):
         self.opacity_slider.setValue(90)
         self.opacity_slider.valueChanged.connect(self.set_opacity)
         dialog_layout.addWidget(self.opacity_slider)
-        dialog_layout.addWidget(label('仅改变界面外观，不影响导出图片。\n清影 2.5 · 本地降噪与放大',True))
+        dialog_layout.addWidget(label('仅改变界面外观，不影响导出图片。\n清影 2.6 · 本地降噪与放大',True))
         close=QPushButton('完成')
         close.clicked.connect(self.settings_dialog.accept)
         dialog_layout.addWidget(close)
@@ -586,6 +586,7 @@ class MainWindow(QWidget):
         mode_id=self.mode_combo.itemData(index)
         self.radios[mode_id].setChecked(True)
         descriptions={0:'适合插画与生成图，清理颗粒并保留线条。',4:'重建线条与纹理，支持多种放大倍率。',5:'清理生成图杂纹，保持原始尺寸。',1:'适合普通照片的细小噪点，处理较慢。',2:'适合轻度噪点，处理速度较快。',3:'适合黑白颗粒与椒盐噪声。'}
+        descriptions.update({6:'清理 AI 二次元图鱼鳞纹：缩小、动漫模型重建、L0 平滑。',7:'缩小后用 CUGAN 高档重建，再做 L0；效果更偏平涂。',8:'仅 L0 平滑，不做模型重建；无需显卡，使用 CPU。'})
         self.mode_description.setText(descriptions[mode_id])
 
     def sync_view_buttons(self):
@@ -612,6 +613,10 @@ class MainWindow(QWidget):
 
     def strength_changed(self,value):
         self.strength_value.setText(strength_label(MODES[self.mode_group.checkedId()],value))
+        if hasattr(self, 'strength_hint') and MODES[self.mode_group.checkedId()] in GPT_MODES:
+            down,lam=GPT_PRESETS[value]
+            prefix='' if MODES[self.mode_group.checkedId()]==L0_MODE else f'预缩至 {down:.0%} → 模型重建 → '
+            self.strength_hint.setText(prefix+f'L0 {lam:g}。\nCPU 平滑大图较慢；强力档可能抹平淡阴影。')
         if hasattr(self, 'run_button') and self.result is not None:
             self.status.setText('参数已调整 · 重新降噪后更新结果')
 
@@ -646,7 +651,11 @@ class MainWindow(QWidget):
         self.scale_slider.blockSignals(False)
         self.scale_slider.setEnabled(not self.busy and len(scales)>1)
         self.scale_value.setText('1×（原尺寸）' if scale==1 else f'{scale}×')
-        if mode==CUGAN_MODE:
+        if mode in GPT_MODES:
+            down,lam=GPT_PRESETS[self.strength.value()]
+            prefix='' if mode==L0_MODE else f'预缩至 {down:.0%} → 模型重建 → '
+            text=prefix+f'L0 {lam:g}。\nCPU 平滑大图较慢；强力档可能抹平淡阴影。'
+        elif mode==CUGAN_MODE:
             text='3× / 4× 模型仅支持高档，已自动选择。' if scale in (3,4) else '低 / 中 / 高三档。1× 以 2× 模型重建后缩回原尺寸。'
         elif mode==REHAB_MODE:
             text='轻柔：半强度柔和上色；柔和上色：保守清理；平涂清理：更强。'
@@ -664,9 +673,10 @@ class MainWindow(QWidget):
         self._over_limit=False
         if self.original is not None:
             w,h=self.original.width*scale,self.original.height*scale
-            self._over_limit=w*h>60_000_000
+            limit=8_000_000 if mode in GPT_MODES else 60_000_000
+            self._over_limit=w*h>limit
             text+=f'\n预计输出 {w} × {h} 像素。'
-            if self._over_limit:text+='超过 6000 万像素，请降低倍率。'
+            if self._over_limit:text+=('超过此模式 800 万像素上限，请先缩小图片。' if mode in GPT_MODES else '超过 6000 万像素，请降低倍率。')
         self.scale_hint.setText(text)
         self.scale_hint.setStyleSheet('color:#b45338;' if self._over_limit else '')
         if hasattr(self,'run_button'):self.run_button.setEnabled(not self.busy and self.original is not None and not self._over_limit)
@@ -863,7 +873,7 @@ def main():
         folder = writable_folder(sys.argv[2])
         image = Image.fromarray(np.random.default_rng(17).integers(90, 170, (180, 320, 3), dtype=np.uint8))
         for i, mode in enumerate(MODES):
-            save_image(denoise(image, mode, 3 if mode in (NEURAL_MODE,CUGAN_MODE,REHAB_MODE) else 12), folder/f'测试_{i}.png')
+            save_image(denoise(image, mode, 2 if mode in GPT_MODES else 3 if mode in (NEURAL_MODE,CUGAN_MODE,REHAB_MODE) else 12), folder/f'测试_{i}.png')
         window.path = str(folder/'测试_0.png')
         window.completed('loaded', (window.path, image))
         window.completed('result', (load_image(folder/'测试_0.png'), MODES[0], 3))
@@ -876,7 +886,7 @@ def main():
         loop.exec()
         window.grab().save(str(folder/'界面自检.png'))
         window.close()
-        (folder/'自检结果.json').write_text(json.dumps({'status':'PASS','modes':6,'scale_options':{mode:supported_scales(mode) for mode in MODES},'default':'Waifu2x CUNet, noise=3, scale=1','image_export':True,'glass':True,'fixed_comparison':True},ensure_ascii=False),encoding='utf-8')
+        (folder/'自检结果.json').write_text(json.dumps({'status':'PASS','modes':len(MODES),'scale_options':{mode:supported_scales(mode) for mode in MODES},'default':'Waifu2x CUNet, noise=3, scale=1','image_export':True,'glass':True,'fixed_comparison':True},ensure_ascii=False),encoding='utf-8')
         return 0
     window.show()
     return application.exec()
